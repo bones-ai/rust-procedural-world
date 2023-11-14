@@ -24,3 +24,6 @@ cargo run
 ## Configurations
 - The project config file is located at `src/configs.rs`
 - To modify the terrain generation, update the thresholds in `src/terrain.rs`
+
+## Asset Page
+https://polyducks.itch.io/kitchen-sink-textmode-font
