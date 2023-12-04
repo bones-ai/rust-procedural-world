@@ -25,6 +25,10 @@ struct PlayerDirection(f32);
 struct WalkTrailTimer(Timer);
 #[derive(Resource)]
 struct DefaultAtlasHandle(pub Option<Handle<TextureAtlas>>);
+#[derive(Resource, Default)]
+pub struct CurrentPlayerChunkPos(pub (i32, i32));
+#[derive(Event)]
+pub struct PlayerChunkUpdateEvent(pub (i32, i32));
 
 // TODO make this a state
 #[derive(Default, PartialEq, Debug)]
@@ -38,26 +42,29 @@ enum PlayerState {
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup)
-            .add_systems(Startup, spawn_player)
-            .insert_resource(PlayerSpriteIndex(0))
+        app.insert_resource(PlayerSpriteIndex(0))
             .insert_resource(PlayerDirection(0.0))
             .insert_resource(CurrentPlayerState::default())
+            .insert_resource(CurrentPlayerChunkPos::default())
             .insert_resource(WalkTrailTimer(Timer::from_seconds(
                 WALK_TRAIL_TIMER,
                 TimerMode::Repeating,
             )))
             .insert_resource(DefaultAtlasHandle(None))
+            .add_event::<PlayerChunkUpdateEvent>()
+            .add_systems(Startup, setup)
             .add_systems(Update, update_player_state)
             .add_systems(Update, camera_follow_player)
             .add_systems(Update, handle_player_input)
             .add_systems(Update, spawn_walk_trail)
+            .add_systems(Update, update_player_chunk_pos)
             .add_systems(Update, clean_old_walk_trails)
             .add_systems(Update, update_player_sprite);
     }
 }
 
 fn setup(
+    mut commands: Commands,
     mut handle: ResMut<DefaultAtlasHandle>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
@@ -73,15 +80,13 @@ fn setup(
     );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     handle.0 = Some(texture_atlas_handle);
-}
 
-fn spawn_player(mut commands: Commands, handle: Res<DefaultAtlasHandle>) {
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: handle.0.clone().unwrap(),
             sprite: TextureAtlasSprite::new(PLAYER_SPRITE_INDEX),
             transform: Transform::from_scale(Vec3::splat(SPRITE_SCALE_FACTOR as f32))
-                .with_translation(vec3(0.0, 0.0, 3.0)),
+                .with_translation(vec3(0.0, 0.0, 2.0)),
             ..default()
         },
         Player,
@@ -126,9 +131,7 @@ fn update_player_state(
                 sprite_index.0 = 0;
             }
         }
-        PlayerState::Idle => {}
-        PlayerState::Walk => {}
-        PlayerState::Swim => {}
+        _ => {}
     }
 }
 
@@ -155,10 +158,34 @@ fn update_player_sprite(
     sprite.index = if player_state.is_land() {
         sprite_index.0 + PLAYER_SPRITE_INDEX
     } else if player_state.is_jump() {
-        sprite_index.0 + 21
+        sprite_index.0 + PLAYER_SPRITE_INDEX + 3
     } else {
-        28
+        49
     };
+}
+
+fn update_player_chunk_pos(
+    mut chunk_pos: ResMut<CurrentPlayerChunkPos>,
+    mut ev_chunk_update: EventWriter<PlayerChunkUpdateEvent>,
+    player_query: Query<&Transform, With<Player>>,
+) {
+    if player_query.is_empty() {
+        return;
+    }
+
+    let transform = player_query.single();
+    let (x, y) = (transform.translation.x, transform.translation.y);
+    let (a, b) = world_to_grid(x, y);
+    let (a, b) = center_to_top_left_grid(a, b);
+    let (x, y) = grid_to_chunk(a, b);
+
+    let (old_x, old_y) = chunk_pos.0;
+    if old_x == x && old_y == y {
+        return;
+    }
+
+    ev_chunk_update.send(PlayerChunkUpdateEvent((x, y)));
+    chunk_pos.0 = (x, y);
 }
 
 fn handle_player_input(
@@ -255,7 +282,7 @@ fn spawn_walk_trail(
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: image_handle.0.clone().unwrap(),
-            sprite: TextureAtlasSprite::new(15),
+            sprite: TextureAtlasSprite::new(50),
             transform: Transform::from_scale(Vec3::splat(SPRITE_SCALE_FACTOR as f32 - 1.0))
                 .with_translation(vec3(transform.translation.x, transform.translation.y, 1.0))
                 .with_rotation(Quat::from_rotation_z(player_angle.0)),
@@ -299,6 +326,7 @@ fn camera_follow_player(
         ),
         0.05,
     );
+    // cam_transform.translation = player_transform.translation;
 }
 
 impl CurrentPlayerState {

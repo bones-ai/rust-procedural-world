@@ -7,7 +7,10 @@ Built in [Rust](https://www.rust-lang.org/) using the [Bevy](https://bevyengine.
 
 ![screenshot](/screenshot.png)
 
-# Tutorial <a name="tutorial-section"></a>
+# Tutorials <a name="tutorial-section"></a>
+## Part 2
+[![youtube](https://img.youtube.com/vi/75TutbRSwVI/0.jpg)](https://youtu.be/75TutbRSwVI)
+## Part 1
 [![youtube](https://img.youtube.com/vi/NSDdJeCmXXE/0.jpg)](https://youtu.be/NSDdJeCmXXE)
 
 ## Usage

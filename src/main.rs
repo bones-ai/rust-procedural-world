@@ -15,7 +15,7 @@ fn main() {
                 .set(ImagePlugin::default_nearest())
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        // mode: bevy::window::WindowMode::Fullscreen,
+                        mode: bevy::window::WindowMode::Fullscreen,
                         resolution: (WW as f32, WH as f32).into(),
                         title: "ProcGen".to_string(),
                         ..default()
