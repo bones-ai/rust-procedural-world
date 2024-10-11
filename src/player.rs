@@ -202,10 +202,22 @@ fn handle_player_input(
     }
 
     let mut transform = player_query.single_mut();
+
     let w_key = keys.pressed(KeyCode::W);
     let a_key = keys.pressed(KeyCode::A);
     let s_key = keys.pressed(KeyCode::S);
     let d_key = keys.pressed(KeyCode::D);
+
+    let up_arrow_key = keys.pressed(KeyCode::Up);
+    let left_arrow_key = keys.pressed(KeyCode::Left);
+    let down_arrow_key = keys.pressed(KeyCode::Down);
+    let right_arrow_key = keys.pressed(KeyCode::Right);
+
+    let up_pressed = w_key || up_arrow_key;
+    let left_pressed = a_key || left_arrow_key;
+    let down_pressed = s_key || down_arrow_key;
+    let right_pressed = d_key || right_arrow_key;
+
     let speed_scale = if keys.pressed(KeyCode::ShiftLeft) {
         5.0
     } else {
@@ -213,20 +225,20 @@ fn handle_player_input(
     };
     let mut direction = Vec3::ZERO;
 
-    if w_key {
+    if up_pressed {
         direction.y += 1.0;
     }
-    if s_key {
-        direction.y -= 1.0;
-    }
-    if a_key {
+    if left_pressed {
         direction.x -= 1.0;
     }
-    if d_key {
+    if down_pressed {
+        direction.y -= 1.0;
+    }
+    if right_pressed {
         direction.x += 1.0;
     }
 
-    if w_key || s_key || a_key || d_key {
+    if up_pressed || left_pressed || down_pressed || right_pressed {
         let player_angle = direction.y.atan2(direction.x);
         let sprite_angle = if player_state.is_land() {
             0.0
