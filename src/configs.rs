@@ -29,3 +29,6 @@ pub const PLAYER_ANIMATION_INTERVAL: f32 = 0.3;
 pub const WALK_TRAIL_TIMER: f32 = 1.2;
 pub const TRAIL_LIFE_SPAN: f32 = 5.0;
 pub const PLAYER_JUMP_TIME: f32 = 0.3;
+
+// Terrain
+pub const FOUR_WINDOWED_HOUSE_SPRITE_INDEX: usize = 18;

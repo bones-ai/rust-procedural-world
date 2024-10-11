@@ -5,7 +5,7 @@ use bevy::{
 };
 use bevy_pancam::{PanCam, PanCamPlugin};
 
-use island_procgen::{player::PlayerPlugin, terrain::TerrainPlugin};
+use island_procgen::{minigame::MinigamePlugin, player::PlayerPlugin, terrain::TerrainPlugin};
 use island_procgen::{terrain::ResetTerrainEvent, *};
 
 fn main() {
@@ -32,6 +32,7 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(TerrainPlugin)
         .add_plugins(PlayerPlugin)
+        .add_plugins(MinigamePlugin)
         .add_systems(Startup, spawn_camera)
         .add_systems(Update, handle_settings_input)
         .add_systems(Update, close_on_esc)

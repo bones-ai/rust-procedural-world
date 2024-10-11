@@ -1,7 +1,8 @@
 use bevy::math::vec2;
 use bevy::{math::vec3, prelude::*, utils::Instant};
+use minigame::SetMinigameEvent;
 
-use crate::terrain::GroundTiles;
+use crate::terrain::{GroundTiles, TileComponent};
 use crate::utils::*;
 use crate::*;
 
@@ -55,6 +56,7 @@ impl Plugin for PlayerPlugin {
             .add_systems(Startup, setup)
             .add_systems(Update, update_player_state)
             .add_systems(Update, camera_follow_player)
+            .add_systems(Update, handle_player_hit_terrain)
             .add_systems(Update, handle_player_input)
             .add_systems(Update, spawn_walk_trail)
             .add_systems(Update, update_player_chunk_pos)
@@ -339,6 +341,42 @@ fn camera_follow_player(
         0.05,
     );
     // cam_transform.translation = player_transform.translation;
+}
+
+fn handle_player_hit_terrain(
+    player_query: Query<&Transform, With<Player>>,
+    mut terrain_query: Query<(Entity, &Transform, &mut TextureAtlasSprite), With<TileComponent>>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut set_minigame_event_writer: EventWriter<SetMinigameEvent>,
+) {
+    if let Ok(player_transform) = player_query.get_single() {
+        for (terrain_entity, terrain_transform, terrain_ta_sprite) in terrain_query.iter_mut() {
+            if !keyboard_input.just_pressed(KeyCode::Z) {
+                continue;
+            }
+
+            let x_colliding = !diff_exceeds_max(
+                player_transform.translation.x,
+                terrain_transform.translation.x,
+                TILE_W as f32 * 2.0,
+            );
+            let y_colliding = !diff_exceeds_max(
+                player_transform.translation.y,
+                terrain_transform.translation.y,
+                TILE_H as f32 * 2.0,
+            );
+            if !x_colliding || !y_colliding {
+                continue;
+            }
+
+            if terrain_ta_sprite.index == FOUR_WINDOWED_HOUSE_SPRITE_INDEX {
+                set_minigame_event_writer.send(SetMinigameEvent {
+                    minigame_state: minigame::MinigameState::Maze,
+                    seed: terrain_entity.index(),
+                });
+            }
+        }
+    }
 }
 
 impl CurrentPlayerState {

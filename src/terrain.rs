@@ -12,7 +12,7 @@ use crate::utils::*;
 use crate::*;
 
 #[derive(Component)]
-struct TileComponent;
+pub struct TileComponent;
 #[derive(Resource)]
 pub struct GroundTiles(pub HashSet<(i32, i32)>);
 #[derive(Resource)]
@@ -22,11 +22,11 @@ struct GenerationSeed(u32);
 #[derive(Event)]
 pub struct ResetTerrainEvent;
 
-#[derive(Eq, PartialEq, Hash)]
-struct Tile {
-    pos: (i32, i32),
-    sprite: usize,
-    z_index: i32,
+#[derive(Component, Eq, PartialEq, Hash)]
+pub struct Tile {
+    pub pos: (i32, i32),
+    pub sprite: usize,
+    pub z_index: i32,
 }
 
 pub struct TerrainPlugin;

@@ -35,3 +35,8 @@ pub fn world_to_chunk(x: f32, y: f32) -> (i32, i32) {
     let (x, y) = world_to_grid(x, y);
     grid_to_chunk(x, y)
 }
+
+pub fn diff_exceeds_max(n1: f32, n2: f32, max: f32) -> bool {
+    let diff = if n1 >= n2 { n1 - n2 } else { n2 - n1 };
+    diff > max
+}
