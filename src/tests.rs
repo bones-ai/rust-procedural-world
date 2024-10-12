@@ -1,9 +1,9 @@
 #[cfg(test)]
-use crate::maze::*;
+use crate::grid::*;
 
 #[test]
 fn test_maze() {
-    let maze = Maze::new(8, 12, 1234);
+    let maze = Grid::new_maze(8, 12, 1234);
 
     assert_eq!(maze.width(), 8);
     assert_eq!(maze.height(), 12);
@@ -13,7 +13,7 @@ fn test_maze() {
 
 #[test]
 fn test_is_wall_between() {
-    let maze = Maze::new(2, 2, 1234);
+    let maze = Grid::new_maze(2, 2, 1234);
 
     // Vertical wall between two cells
     assert_eq!(maze.is_wall_between((1, 0), (0, 0)), true);

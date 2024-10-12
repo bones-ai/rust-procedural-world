@@ -2,7 +2,7 @@ use std::vec;
 
 use bevy::prelude::*;
 
-use crate::{configs::*, maze::*, utils::*};
+use crate::{configs::*, grid::Grid, utils::*};
 
 const NORMAL_BUTTON_COLOR: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON_COLOR: Color = Color::rgb(0.25, 0.25, 0.25);
@@ -52,8 +52,7 @@ impl Minigame {
     }
 
     fn spawn_new_maze(commands: &mut Commands, seed: u32) {
-        // TODO: create a maze UI for the player to navigate through
-        let maze = Maze::new(20, 12, seed);
+        let maze_grid = Grid::new_maze(20, 12, seed);
 
         // Minigame
         commands
@@ -88,11 +87,11 @@ impl Minigame {
                             background_color: Color::GREEN.into(),
                             ..default()
                         },
-                        maze.clone(),
+                        maze_grid.clone(),
                     ))
                     .with_children(|parent| {
                         // Rows
-                        for row in maze.cells {
+                        for row in maze_grid.cells {
                             parent
                                 .spawn(NodeBundle {
                                     style: Style {
@@ -253,12 +252,12 @@ fn despawn_minigame(mut commands: Commands, minigame_query: Query<Entity, With<M
 fn handle_minigame_player_input(
     mut minigame_player_query: Query<&mut Style, With<MinigamePlayer>>,
     minigame_container_query: Query<&mut Node, With<MinigameContainer>>,
-    maze_query: Query<&Maze>,
+    grid_query: Query<&Grid>,
     keys: Res<Input<KeyCode>>,
 ) {
     if minigame_player_query.is_empty()
         || minigame_container_query.is_empty()
-        || maze_query.is_empty()
+        || grid_query.is_empty()
     {
         return;
     }
@@ -284,7 +283,7 @@ fn handle_minigame_player_input(
 
     let mut style = minigame_player_query.get_single_mut().unwrap();
     let container = minigame_container_query.get_single().unwrap();
-    let maze = maze_query.get_single().unwrap();
+    let grid = grid_query.get_single().unwrap();
 
     let speed_scale = if keys.pressed(KeyCode::ShiftLeft) {
         5.0
@@ -346,8 +345,18 @@ fn handle_minigame_player_input(
             // Find the next (x,y) the corner is trying to go to
             minigame_player_pos_all_vertices(new_left, new_top, style.width, style.height)
         {
+            // Check if new cell is walkable
+            match grid.clone_at(new_x, new_y) {
+                None => return,
+                Some(c) => {
+                    if !c.is_walkable() {
+                        return;
+                    }
+                }
+            }
+
             // Check if wall between the two cells
-            if maze.is_wall_between((curr_x, curr_y), (new_x, new_y)) {
+            if grid.is_wall_between((curr_x, curr_y), (new_x, new_y)) {
                 return;
             }
         }
