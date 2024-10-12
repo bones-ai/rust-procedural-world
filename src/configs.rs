@@ -5,6 +5,7 @@ pub const SPRITE_SHEET_W: usize = 8;
 pub const SPRITE_SHEET_H: usize = 9;
 pub const SPRITE_SCALE_FACTOR: usize = 5;
 pub const PLAYER_SPRITE_INDEX: usize = 56;
+pub const FOUR_WINDOWED_HOUSE_SPRITE_INDEX: usize = 18;
 pub const SPRITE_SHEET_PATH: &str = "sprite-sheet.png";
 pub const SPRITE_PADDING: f32 = 2.0;
 pub const SPRITE_SHEET_OFFSET: f32 = 2.0;
@@ -30,5 +31,9 @@ pub const WALK_TRAIL_TIMER: f32 = 1.2;
 pub const TRAIL_LIFE_SPAN: f32 = 5.0;
 pub const PLAYER_JUMP_TIME: f32 = 0.3;
 
-// Terrain
-pub const FOUR_WINDOWED_HOUSE_SPRITE_INDEX: usize = 18;
+// Maze
+pub const MAZE_CELL_HEIGHT: f32 = 50.0;
+pub const MAZE_CELL_WIDTH: f32 = 50.0;
+pub const MAZE_PLAYER_HEIGHT: f32 = 20.0;
+pub const MAZE_PLAYER_WIDTH: f32 = 20.0;
+pub const MAZE_PLAYER_SPEED: f32 = 2.0;

@@ -1,3 +1,5 @@
+use bevy::ui::Val;
+
 use crate::*;
 
 pub fn grid_to_world(x: f32, y: f32) -> (f32, f32) {
@@ -39,4 +41,43 @@ pub fn world_to_chunk(x: f32, y: f32) -> (i32, i32) {
 pub fn diff_exceeds_max(n1: f32, n2: f32, max: f32) -> bool {
     let diff = if n1 >= n2 { n1 - n2 } else { n2 - n1 };
     diff > max
+}
+
+pub fn add_px_vals(val1: Val, val2: Val) -> Val {
+    match (val1, val2) {
+        (Val::Px(px1), Val::Px(px2)) => Val::Px(px1 + px2),
+        _ => panic!("Both values must be Val::Px"),
+    }
+}
+
+pub fn px_val_greater_than(val1: Val, val2: Val) -> bool {
+    match (val1, val2) {
+        (Val::Px(px1), Val::Px(px2)) => px1 > px2,
+        _ => false,
+    }
+}
+
+pub fn px_val_greater_than_or_eq(val1: Val, val2: Val) -> bool {
+    match (val1, val2) {
+        (Val::Px(px1), Val::Px(px2)) => px1 >= px2,
+        _ => false,
+    }
+}
+
+pub fn px_val_less_than(val1: Val, val2: Val) -> bool {
+    match (val1, val2) {
+        (Val::Px(px1), Val::Px(px2)) => px1 < px2,
+        _ => false,
+    }
+}
+
+pub fn px_val_less_than_or_eq(val1: Val, val2: Val) -> bool {
+    match (val1, val2) {
+        (Val::Px(px1), Val::Px(px2)) => px1 <= px2,
+        _ => false,
+    }
+}
+
+pub fn px_val_between(val: Val, min: Val, max: Val) -> bool {
+    px_val_greater_than_or_eq(val, min) && px_val_less_than_or_eq(val, max)
 }

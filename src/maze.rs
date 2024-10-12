@@ -1,15 +1,16 @@
+use bevy::prelude::*;
 use bevy::utils::HashSet;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Component)]
 pub struct Maze {
-    cells: Vec<Vec<MazeCell>>,
+    pub cells: Vec<Vec<MazeCell>>,
     seed: u32,
 }
 
-#[derive(Debug)]
-struct MazeCell {
-    bottom_wall: bool,
-    right_wall: bool,
+#[derive(Debug, Clone, Component)]
+pub struct MazeCell {
+    pub bottom_wall: bool,
+    pub right_wall: bool,
 }
 
 impl Maze {
@@ -59,6 +60,53 @@ impl Maze {
 
     pub fn max_y_index(&self) -> usize {
         self.height() - 1
+    }
+
+    pub fn is_wall_between(&self, (x1, y1): (usize, usize), (x2, y2): (usize, usize)) -> bool {
+        let cell1 = match self.clone_at(x1, y1) {
+            Some(c) => c,
+            None => return false,
+        };
+        let cell2 = match self.clone_at(x2, y2) {
+            Some(c) => c,
+            None => return false,
+        };
+
+        // same x, with y diff by 1
+        if x1 == x2 {
+            if (y1 + 1) == y2 {
+                return cell1.bottom_wall;
+            }
+            if y1 as i32 - 1 == y2 as i32 {
+                return cell2.bottom_wall;
+            }
+        }
+
+        // same y, with x diff by 1
+        if y1 == y2 {
+            if (x1 + 1) == x2 {
+                return cell1.right_wall;
+            }
+            if x1 as i32 - 1 == x2 as i32 {
+                return cell2.right_wall;
+            }
+        }
+
+        false
+    }
+
+    pub fn clone_at(&self, x_index: usize, y_index: usize) -> Option<MazeCell> {
+        match self.at(x_index, y_index) {
+            Some(c) => Some(c.clone()),
+            None => None,
+        }
+    }
+
+    fn at(&self, x_index: usize, y_index: usize) -> Option<&MazeCell> {
+        if x_index > self.max_x_index() || y_index > self.max_y_index() {
+            return None;
+        }
+        Some(&self.cells[y_index][x_index])
     }
 
     fn set_bottom_wall(&mut self, x_index: usize, y_index: usize, bottom_wall: bool) {

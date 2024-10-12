@@ -1,6 +1,6 @@
 use bevy::math::vec2;
 use bevy::{math::vec3, prelude::*, utils::Instant};
-use minigame::SetMinigameEvent;
+use minigame::{MinigameState, SetMinigameEvent};
 
 use crate::terrain::{GroundTiles, TileComponent};
 use crate::utils::*;
@@ -56,8 +56,14 @@ impl Plugin for PlayerPlugin {
             .add_systems(Startup, setup)
             .add_systems(Update, update_player_state)
             .add_systems(Update, camera_follow_player)
-            .add_systems(Update, handle_player_hit_terrain)
-            .add_systems(Update, handle_player_input)
+            .add_systems(
+                Update,
+                handle_player_hit_terrain.run_if(in_state(MinigameState::None)),
+            )
+            .add_systems(
+                Update,
+                handle_player_input.run_if(in_state(MinigameState::None)),
+            )
             .add_systems(Update, spawn_walk_trail)
             .add_systems(Update, update_player_chunk_pos)
             .add_systems(Update, clean_old_walk_trails)
