@@ -3,12 +3,12 @@ use bevy::utils::HashSet;
 
 #[derive(Debug, Clone, Component)]
 pub struct Maze {
-    pub cells: Vec<Vec<MazeCell>>,
+    pub cells: Vec<Vec<Cell>>,
     seed: u32,
 }
 
 #[derive(Debug, Clone, Component)]
-pub struct MazeCell {
+pub struct Cell {
     pub top_wall: bool,
     pub bottom_wall: bool,
     pub left_wall: bool,
@@ -24,12 +24,12 @@ impl Maze {
             );
         }
 
-        let mut cells: Vec<Vec<MazeCell>> = Vec::new();
+        let mut cells: Vec<Vec<Cell>> = Vec::new();
 
         for _ in 0..height {
             let mut row = Vec::new();
             for _ in 0..width {
-                row.push(MazeCell::new());
+                row.push(Cell::new());
             }
             cells.push(row)
         }
@@ -97,18 +97,23 @@ impl Maze {
         false
     }
 
-    pub fn clone_at(&self, x_index: usize, y_index: usize) -> Option<MazeCell> {
+    pub fn clone_at(&self, x_index: usize, y_index: usize) -> Option<Cell> {
         match self.clone().at(x_index, y_index) {
             Some(c) => Some(c.clone()),
             None => None,
         }
     }
 
-    fn at(&mut self, x_index: usize, y_index: usize) -> Option<&mut MazeCell> {
+    fn at(&mut self, x_index: usize, y_index: usize) -> Option<&mut Cell> {
         if x_index > self.max_x_index() || y_index > self.max_y_index() {
             return None;
         }
-        Some(&mut self.cells[y_index][x_index])
+        if let Some(row) = self.cells.get_mut(y_index) {
+            if let Some(cell) = row.get_mut(x_index) {
+                return Some(cell);
+            }
+        }
+        None
     }
 
     fn set_top_wall(&mut self, x_index: usize, y_index: usize, top_wall: bool) {
@@ -226,9 +231,9 @@ impl Maze {
     }
 }
 
-impl MazeCell {
+impl Cell {
     fn new() -> Self {
-        MazeCell {
+        Cell {
             top_wall: true,
             bottom_wall: true,
             left_wall: true,

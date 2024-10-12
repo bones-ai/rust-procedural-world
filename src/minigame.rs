@@ -166,8 +166,8 @@ impl Minigame {
                                     // },
                                     NodeBundle {
                                         style: Style {
-                                            height: Val::Px(MAZE_PLAYER_HEIGHT),
-                                            width: Val::Px(MAZE_PLAYER_WIDTH),
+                                            height: Val::Px(MINIGAME_PLAYER_HEIGHT),
+                                            width: Val::Px(MINIGAME_PLAYER_WIDTH),
                                             top: Val::Px(0.0),
                                             left: Val::Px(0.0),
                                             ..default()
@@ -292,7 +292,7 @@ fn handle_minigame_player_input(
         1.0
     };
 
-    let px = MAZE_PLAYER_SPEED * speed_scale;
+    let px = MINIGAME_PLAYER_SPEED * speed_scale;
 
     let mut new_left = style.left.clone();
     let mut new_top = style.top.clone();
@@ -302,7 +302,7 @@ fn handle_minigame_player_input(
         if !px_val_between(
             new_top,
             Val::Px(0.0),
-            Val::Px(container.size().y - MAZE_PLAYER_HEIGHT),
+            Val::Px(container.size().y - MINIGAME_PLAYER_HEIGHT),
         ) {
             return;
         }
@@ -312,7 +312,7 @@ fn handle_minigame_player_input(
         if !px_val_between(
             new_top,
             Val::Px(0.0),
-            Val::Px(container.size().y - MAZE_PLAYER_HEIGHT),
+            Val::Px(container.size().y - MINIGAME_PLAYER_HEIGHT),
         ) {
             return;
         }
@@ -322,7 +322,7 @@ fn handle_minigame_player_input(
         if !px_val_between(
             new_left,
             Val::Px(0.0),
-            Val::Px(container.size().x - MAZE_PLAYER_WIDTH),
+            Val::Px(container.size().x - MINIGAME_PLAYER_WIDTH),
         ) {
             return;
         }
@@ -332,7 +332,7 @@ fn handle_minigame_player_input(
         if !px_val_between(
             new_left,
             Val::Px(0.0),
-            Val::Px(container.size().x - MAZE_PLAYER_WIDTH),
+            Val::Px(container.size().x - MINIGAME_PLAYER_WIDTH),
         ) {
             return;
         }
@@ -360,7 +360,7 @@ fn handle_minigame_player_input(
 fn get_minigame_player_pos(minigame_player_left: Val, minigame_player_top: Val) -> (usize, usize) {
     let mut x: usize = 0;
     loop {
-        let cell_left = Val::Px(MAZE_CELL_WIDTH * (x as f32 + 1.0));
+        let cell_left = Val::Px(CELL_WIDTH * (x as f32 + 1.0));
         if px_val_greater_than(cell_left, minigame_player_left) {
             break;
         }
@@ -369,7 +369,7 @@ fn get_minigame_player_pos(minigame_player_left: Val, minigame_player_top: Val) 
 
     let mut y: usize = 0;
     loop {
-        let cell_top = Val::Px(MAZE_CELL_HEIGHT * (y as f32 + 1.0));
+        let cell_top = Val::Px(CELL_HEIGHT * (y as f32 + 1.0));
         if px_val_greater_than(cell_top, minigame_player_top) {
             break;
         }

@@ -32,12 +32,12 @@ pub const WALK_TRAIL_TIMER: f32 = 1.2;
 pub const TRAIL_LIFE_SPAN: f32 = 5.0;
 pub const PLAYER_JUMP_TIME: f32 = 0.3;
 
-// Maze
-pub const MAZE_CELL_HEIGHT: f32 = 50.0;
-pub const MAZE_CELL_WIDTH: f32 = 50.0;
-pub const MAZE_PLAYER_HEIGHT: f32 = 20.0;
-pub const MAZE_PLAYER_WIDTH: f32 = 20.0;
-pub const MAZE_PLAYER_SPEED: f32 = 2.0;
+// Minigame
+pub const CELL_HEIGHT: f32 = 50.0;
+pub const CELL_WIDTH: f32 = 50.0;
+pub const MINIGAME_PLAYER_HEIGHT: f32 = 20.0;
+pub const MINIGAME_PLAYER_WIDTH: f32 = 20.0;
+pub const MINIGAME_PLAYER_SPEED: f32 = 2.0;
 
 // Args
 pub const ARG_DISABLE_FULLSCREEN: &str = "no-fullscreen";
