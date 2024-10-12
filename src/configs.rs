@@ -37,3 +37,6 @@ pub const MAZE_CELL_WIDTH: f32 = 50.0;
 pub const MAZE_PLAYER_HEIGHT: f32 = 20.0;
 pub const MAZE_PLAYER_WIDTH: f32 = 20.0;
 pub const MAZE_PLAYER_SPEED: f32 = 2.0;
+
+// Args
+pub const ARG_DISABLE_FULLSCREEN: &str = "no-fullscreen";

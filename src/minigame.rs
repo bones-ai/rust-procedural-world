@@ -337,7 +337,7 @@ fn handle_minigame_player_input(
         minigame_player_pos_all_vertices(style.left, style.top, style.width, style.height)
     {
         for (new_x, new_y) in
-            // Find the next (x,y) the minigame player is trying to go to
+            // Find the next (x,y) the corner is trying to go to
             minigame_player_pos_all_vertices(new_left, new_top, style.width, style.height)
         {
             // Check if wall between the two cells

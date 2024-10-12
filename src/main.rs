@@ -1,7 +1,9 @@
+use std::env;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::close_on_esc,
+    window::{close_on_esc, WindowMode},
 };
 use bevy_pancam::{PanCam, PanCamPlugin};
 
@@ -9,13 +11,20 @@ use island_procgen::{minigame::MinigamePlugin, player::PlayerPlugin, terrain::Te
 use island_procgen::{terrain::ResetTerrainEvent, *};
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    let mut mode = WindowMode::default();
+    if !args.contains(&ARG_DISABLE_FULLSCREEN.to_string()) {
+        mode = bevy::window::WindowMode::Fullscreen;
+    }
+
     App::new()
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        mode: bevy::window::WindowMode::Fullscreen,
+                        mode,
                         resolution: (WW as f32, WH as f32).into(),
                         title: "ProcGen".to_string(),
                         ..default()
