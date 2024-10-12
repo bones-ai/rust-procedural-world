@@ -9,7 +9,9 @@ pub struct Maze {
 
 #[derive(Debug, Clone, Component)]
 pub struct MazeCell {
+    pub top_wall: bool,
     pub bottom_wall: bool,
+    pub left_wall: bool,
     pub right_wall: bool,
 }
 
@@ -75,20 +77,20 @@ impl Maze {
         // same x, with y diff by 1
         if x1 == x2 {
             if (y1 + 1) == y2 {
-                return cell1.bottom_wall;
+                return cell1.bottom_wall || cell2.top_wall;
             }
             if y1 as i32 - 1 == y2 as i32 {
-                return cell2.bottom_wall;
+                return cell1.top_wall || cell2.bottom_wall;
             }
         }
 
         // same y, with x diff by 1
         if y1 == y2 {
             if (x1 + 1) == x2 {
-                return cell1.right_wall;
+                return cell1.right_wall || cell2.left_wall;
             }
             if x1 as i32 - 1 == x2 as i32 {
-                return cell2.right_wall;
+                return cell1.left_wall || cell2.right_wall;
             }
         }
 
@@ -96,27 +98,41 @@ impl Maze {
     }
 
     pub fn clone_at(&self, x_index: usize, y_index: usize) -> Option<MazeCell> {
-        match self.at(x_index, y_index) {
+        match self.clone().at(x_index, y_index) {
             Some(c) => Some(c.clone()),
             None => None,
         }
     }
 
-    fn at(&self, x_index: usize, y_index: usize) -> Option<&MazeCell> {
+    fn at(&mut self, x_index: usize, y_index: usize) -> Option<&mut MazeCell> {
         if x_index > self.max_x_index() || y_index > self.max_y_index() {
             return None;
         }
-        Some(&self.cells[y_index][x_index])
+        Some(&mut self.cells[y_index][x_index])
+    }
+
+    fn set_top_wall(&mut self, x_index: usize, y_index: usize, top_wall: bool) {
+        if let Some(cell) = self.at(x_index, y_index) {
+            cell.top_wall = top_wall;
+        }
     }
 
     fn set_bottom_wall(&mut self, x_index: usize, y_index: usize, bottom_wall: bool) {
-        let cell = &mut self.cells[y_index][x_index];
-        cell.bottom_wall = bottom_wall;
+        if let Some(cell) = self.at(x_index, y_index) {
+            cell.bottom_wall = bottom_wall;
+        }
+    }
+
+    fn set_left_wall(&mut self, x_index: usize, y_index: usize, left_wall: bool) {
+        if let Some(cell) = self.at(x_index, y_index) {
+            cell.left_wall = left_wall;
+        }
     }
 
     fn set_right_wall(&mut self, x_index: usize, y_index: usize, right_wall: bool) {
-        let cell = &mut self.cells[y_index][x_index];
-        cell.right_wall = right_wall;
+        if let Some(cell) = self.at(x_index, y_index) {
+            cell.right_wall = right_wall;
+        }
     }
 
     fn get_next_pos(
@@ -175,13 +191,17 @@ impl Maze {
                     if curr_x == next_x {
                         if curr_y < next_y {
                             self.set_bottom_wall(curr_x, curr_y, false);
+                            self.set_top_wall(next_x, next_y, false);
                         } else {
+                            self.set_top_wall(curr_x, curr_y, false);
                             self.set_bottom_wall(next_x, next_y, false);
                         }
                     } else {
                         if curr_x < next_x {
                             self.set_right_wall(curr_x, curr_y, false);
+                            self.set_left_wall(next_x, next_y, false);
                         } else {
+                            self.set_left_wall(curr_x, curr_y, false);
                             self.set_right_wall(next_x, next_y, false);
                         }
                     }
@@ -209,7 +229,9 @@ impl Maze {
 impl MazeCell {
     fn new() -> Self {
         MazeCell {
+            top_wall: true,
             bottom_wall: true,
+            left_wall: true,
             right_wall: true,
         }
     }

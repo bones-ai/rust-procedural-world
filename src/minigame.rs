@@ -109,8 +109,14 @@ impl Minigame {
                                     for cell in row {
                                         let mut border = UiRect { ..default() };
 
+                                        if cell.top_wall {
+                                            border.top = Val::Px(2.0);
+                                        }
                                         if cell.bottom_wall {
                                             border.bottom = Val::Px(2.0);
+                                        }
+                                        if cell.left_wall {
+                                            border.left = Val::Px(2.0);
                                         }
                                         if cell.right_wall {
                                             border.right = Val::Px(2.0);
