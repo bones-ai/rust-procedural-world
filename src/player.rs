@@ -16,8 +16,8 @@ struct Player;
 struct PlayerSpriteIndex(usize);
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
-#[derive(Resource)]
-struct TextureAtlasHandle(Option<Handle<TextureAtlas>>);
+// #[derive(Resource)]
+// struct TextureAtlasHandle(Option<Handle<TextureAtlas>>);
 #[derive(Resource, Default)]
 struct CurrentPlayerState(PlayerState);
 #[derive(Resource)]
@@ -375,7 +375,12 @@ fn handle_player_hit_terrain(
                 continue;
             }
 
-            if terrain_ta_sprite.index == FOUR_WINDOWED_HOUSE_SPRITE_INDEX {
+            if terrain_ta_sprite.index == ONE_WINDOWED_HOUSE_SPRITE_INDEX {
+                set_minigame_event_writer.send(SetMinigameEvent {
+                    minigame_state: minigame::MinigameState::House,
+                    seed: terrain_entity.index(),
+                });
+            } else if terrain_ta_sprite.index == FOUR_WINDOWED_HOUSE_SPRITE_INDEX {
                 set_minigame_event_writer.send(SetMinigameEvent {
                     minigame_state: minigame::MinigameState::Maze,
                     seed: terrain_entity.index(),

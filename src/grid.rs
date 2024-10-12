@@ -1,13 +1,22 @@
 use bevy::{prelude::*, utils::HashSet};
 
-#[derive(Debug, Clone, Component)]
+#[derive(Clone, Component, Debug)]
 pub struct Grid {
     pub cells: Vec<Vec<Cell>>,
     pub seed: u32,
 }
 
-#[derive(Debug, Clone, Component)]
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum CellType {
+    #[default]
+    Empty,
+    Chair,
+    Table,
+}
+
+#[derive(Clone, Component, Debug, Default)]
 pub struct Cell {
+    pub cell_type: CellType,
     pub top_wall: bool,
     pub bottom_wall: bool,
     pub left_wall: bool,
@@ -149,18 +158,15 @@ impl Grid {
 
 impl Cell {
     fn new() -> Self {
-        Cell {
-            top_wall: false,
-            bottom_wall: false,
-            left_wall: false,
-            right_wall: false,
-        }
+        Cell { ..default() }
     }
 
     pub fn is_walkable(&self) -> bool {
-        // TODO: impliment cells with objects, obstacles, etc. inside of them
-        // that are either walkable or unwalkable by the player
-        true
+        match self.cell_type {
+            CellType::Empty => true,
+            CellType::Chair => false,
+            CellType::Table => false,
+        }
     }
 }
 

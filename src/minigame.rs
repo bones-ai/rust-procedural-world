@@ -12,6 +12,7 @@ const PRESSED_BUTTON_COLOR: Color = Color::rgb(0.35, 0.35, 0.35);
 pub enum MinigameState {
     #[default]
     None,
+    House,
     Maze,
 }
 
@@ -46,188 +47,190 @@ impl Plugin for MinigamePlugin {
 impl Minigame {
     fn spawn_new(commands: &mut Commands, minigame_state: &MinigameState, seed: u32) {
         match minigame_state {
+            MinigameState::House => Self::spawn_new_house(commands, seed),
             MinigameState::Maze => Self::spawn_new_maze(commands, seed),
-            _ => (),
+            MinigameState::None => (),
         }
+    }
+
+    fn spawn_new_house(commands: &mut Commands, seed: u32) {
+        commands.spawn(Self::new_overlay()).with_children(|parent| {
+            // TODO: procedurally create house UI using seed
+            Self::spawn_close_button(parent);
+        });
     }
 
     fn spawn_new_maze(commands: &mut Commands, seed: u32) {
         let maze_grid = Grid::new_maze(20, 12, seed);
 
-        // Minigame
-        commands
-            .spawn((
-                NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        column_gap: Val::Px(10.0),
-                        height: Val::Percent(100.0),
-                        width: Val::Percent(100.0),
+        commands.spawn(Self::new_overlay()).with_children(|parent| {
+            // Maze
+            parent
+                .spawn((
+                    NodeBundle {
+                        style: Style {
+                            position_type: PositionType::Relative,
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::GREEN.into(),
                         ..default()
                     },
-                    background_color: Color::GRAY.into(),
-                    ..default()
-                },
-                Minigame,
-            ))
-            .with_children(|parent| {
-                // Maze
-                parent
-                    .spawn((
-                        NodeBundle {
-                            style: Style {
-                                position_type: PositionType::Relative,
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            background_color: Color::GREEN.into(),
-                            ..default()
-                        },
-                        maze_grid.clone(),
-                    ))
-                    .with_children(|parent| {
-                        // Rows
-                        for row in maze_grid.cells {
-                            parent
-                                .spawn(NodeBundle {
-                                    style: Style {
-                                        justify_content: JustifyContent::Center,
-                                        align_items: AlignItems::Center,
-                                        width: Val::Percent(100.0),
-                                        ..default()
-                                    },
-                                    background_color: Color::BLUE.into(),
+                    maze_grid.clone(),
+                ))
+                .with_children(|parent| {
+                    // Rows
+                    for row in maze_grid.cells {
+                        parent
+                            .spawn(NodeBundle {
+                                style: Style {
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
+                                    width: Val::Percent(100.0),
                                     ..default()
-                                })
-                                .with_children(|parent| {
-                                    // Cells
-                                    for cell in row {
-                                        let mut border = UiRect { ..default() };
+                                },
+                                background_color: Color::BLUE.into(),
+                                ..default()
+                            })
+                            .with_children(|parent| {
+                                // Cells
+                                for cell in row {
+                                    let mut border = UiRect { ..default() };
 
-                                        if cell.top_wall {
-                                            border.top = Val::Px(2.0);
-                                        }
-                                        if cell.bottom_wall {
-                                            border.bottom = Val::Px(2.0);
-                                        }
-                                        if cell.left_wall {
-                                            border.left = Val::Px(2.0);
-                                        }
-                                        if cell.right_wall {
-                                            border.right = Val::Px(2.0);
-                                        }
+                                    if cell.top_wall {
+                                        border.top = Val::Px(2.0);
+                                    }
+                                    if cell.bottom_wall {
+                                        border.bottom = Val::Px(2.0);
+                                    }
+                                    if cell.left_wall {
+                                        border.left = Val::Px(2.0);
+                                    }
+                                    if cell.right_wall {
+                                        border.right = Val::Px(2.0);
+                                    }
 
-                                        parent.spawn((
-                                            NodeBundle {
-                                                style: Style {
-                                                    height: Val::Px(50.0),
-                                                    width: Val::Px(50.0),
-                                                    border,
-                                                    ..default()
-                                                },
-                                                background_color: Color::ORANGE.into(),
-                                                border_color: Color::BLACK.into(),
+                                    parent.spawn((
+                                        NodeBundle {
+                                            style: Style {
+                                                height: Val::Px(50.0),
+                                                width: Val::Px(50.0),
+                                                border,
                                                 ..default()
                                             },
-                                            cell,
-                                        ));
-                                    }
-                                });
-                        }
-
-                        // Minigame Player Container
-                        parent
-                            .spawn((
-                                NodeBundle {
-                                    style: Style {
-                                        position_type: PositionType::Absolute,
-                                        height: Val::Percent(100.0),
-                                        width: Val::Percent(100.0),
-                                        ..default()
-                                    },
-                                    ..default()
-                                },
-                                MinigameContainer,
-                            ))
-                            .with_children(|parent| {
-                                // Minigame Player
-                                parent.spawn((
-                                    // SpriteSheetBundle {
-                                    //     // texture_atlas: handle.0.clone().unwrap(),
-                                    //     sprite: TextureAtlasSprite::new(PLAYER_SPRITE_INDEX),
-                                    //     transform: Transform::from_scale(Vec3::splat(SPRITE_SCALE_FACTOR as f32))
-                                    //         .with_translation(vec3(0.0, 0.0, 4.0)),
-                                    //     ..default()
-                                    // },
-                                    NodeBundle {
-                                        style: Style {
-                                            height: Val::Px(MINIGAME_PLAYER_HEIGHT),
-                                            width: Val::Px(MINIGAME_PLAYER_WIDTH),
-                                            top: Val::Px(0.0),
-                                            left: Val::Px(0.0),
+                                            background_color: Color::ORANGE.into(),
+                                            border_color: Color::BLACK.into(),
                                             ..default()
                                         },
-                                        background_color: Color::RED.into(),
-                                        ..default()
-                                    },
-                                    MinigamePlayer,
-                                    // AnimationTimer(Timer::from_seconds(
-                                    //     PLAYER_ANIMATION_INTERVAL,
-                                    //     TimerMode::Repeating,
-                                    // )),
-                                ));
+                                        cell,
+                                    ));
+                                }
                             });
-                    });
+                    }
 
-                // Close Button
-                parent
-                    .spawn((
-                        ButtonBundle {
-                            style: Style {
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                height: Val::Px(80.0),
-                                width: Val::Px(200.0),
-                                padding: UiRect {
-                                    left: Val::Px(10.0),
-                                    right: Val::Px(10.0),
-                                    top: Val::Px(10.0),
-                                    bottom: Val::Px(10.0),
-                                },
-                                margin: UiRect {
-                                    left: Val::Px(10.0),
-                                    right: Val::Px(10.0),
-                                    top: Val::Px(10.0),
-                                    bottom: Val::Px(10.0),
+                    // Minigame Player Container
+                    parent
+                        .spawn((
+                            NodeBundle {
+                                style: Style {
+                                    position_type: PositionType::Absolute,
+                                    height: Val::Percent(100.0),
+                                    width: Val::Percent(100.0),
+                                    ..default()
                                 },
                                 ..default()
                             },
-                            background_color: NORMAL_BUTTON_COLOR.into(),
-                            ..default()
-                        },
-                        CloseMinigameButton {},
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn(TextBundle {
-                            text: Text {
-                                sections: vec![TextSection::new(
-                                    "Close",
-                                    TextStyle {
-                                        font_size: 32.0,
-                                        color: Color::BLACK,
+                            MinigameContainer,
+                        ))
+                        .with_children(|parent| {
+                            // Minigame Player
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        height: Val::Px(MINIGAME_PLAYER_HEIGHT),
+                                        width: Val::Px(MINIGAME_PLAYER_WIDTH),
+                                        top: Val::Px(0.0),
+                                        left: Val::Px(0.0),
                                         ..default()
                                     },
-                                )],
-                                alignment: TextAlignment::Center,
+                                    background_color: Color::RED.into(),
+                                    ..default()
+                                },
+                                MinigamePlayer,
+                            ));
+                        });
+                });
+
+            // Close Button
+            Self::spawn_close_button(parent);
+        });
+    }
+
+    fn new_overlay() -> (NodeBundle, Minigame) {
+        (
+            NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(10.0),
+                    height: Val::Percent(100.0),
+                    width: Val::Percent(100.0),
+                    ..default()
+                },
+                background_color: Color::GRAY.into(),
+                ..default()
+            },
+            Minigame,
+        )
+    }
+
+    fn spawn_close_button(parent: &mut ChildBuilder) {
+        parent
+            .spawn((
+                ButtonBundle {
+                    style: Style {
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        height: Val::Px(80.0),
+                        width: Val::Px(200.0),
+                        padding: UiRect {
+                            left: Val::Px(10.0),
+                            right: Val::Px(10.0),
+                            top: Val::Px(10.0),
+                            bottom: Val::Px(10.0),
+                        },
+                        margin: UiRect {
+                            left: Val::Px(10.0),
+                            right: Val::Px(10.0),
+                            top: Val::Px(10.0),
+                            bottom: Val::Px(10.0),
+                        },
+                        ..default()
+                    },
+                    background_color: NORMAL_BUTTON_COLOR.into(),
+                    ..default()
+                },
+                CloseMinigameButton {},
+            ))
+            .with_children(|parent| {
+                parent.spawn(TextBundle {
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Close",
+                            TextStyle {
+                                font_size: 32.0,
+                                color: Color::BLACK,
                                 ..default()
                             },
-                            ..default()
-                        });
-                    });
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
             });
     }
 }
