@@ -81,3 +81,7 @@ pub fn px_val_less_than_or_eq(val1: Val, val2: Val) -> bool {
 pub fn px_val_between(val: Val, min: Val, max: Val) -> bool {
     px_val_greater_than_or_eq(val, min) && px_val_less_than_or_eq(val, max)
 }
+
+pub fn proc_gen_num(seed: u32, incr: usize, rem: usize) -> usize {
+    (((seed as usize * incr) as f64).sqrt()) as usize % rem
+}

@@ -2,7 +2,11 @@ use std::vec;
 
 use bevy::prelude::*;
 
-use crate::{configs::*, grid::Grid, utils::*};
+use crate::{
+    configs::*,
+    grid::{CellType, Grid},
+    utils::*,
+};
 
 const NORMAL_BUTTON_COLOR: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON_COLOR: Color = Color::rgb(0.25, 0.25, 0.25);
@@ -45,26 +49,40 @@ impl Plugin for MinigamePlugin {
 }
 
 impl Minigame {
-    fn spawn_new(commands: &mut Commands, minigame_state: &MinigameState, seed: u32) {
+    fn spawn_new(
+        commands: &mut Commands,
+        asset_server: &Res<AssetServer>,
+        minigame_state: &MinigameState,
+        seed: u32,
+    ) {
         match minigame_state {
-            MinigameState::House => Self::spawn_new_house(commands, seed),
-            MinigameState::Maze => Self::spawn_new_maze(commands, seed),
+            MinigameState::House => Self::spawn_new_house(commands, asset_server, seed),
+            MinigameState::Maze => Self::spawn_new_maze(commands, asset_server, seed),
             MinigameState::None => (),
         }
     }
 
-    fn spawn_new_house(commands: &mut Commands, seed: u32) {
-        commands.spawn(Self::new_overlay()).with_children(|parent| {
-            // TODO: procedurally create house UI using seed
-            Self::spawn_close_button(parent);
-        });
+    fn spawn_new_house(commands: &mut Commands, asset_server: &Res<AssetServer>, seed: u32) {
+        Self::spawn_grid(
+            commands,
+            asset_server,
+            Grid::new_house(HOUSE_WIDTH, HOUSE_HEIGHT, seed),
+        );
     }
 
-    fn spawn_new_maze(commands: &mut Commands, seed: u32) {
-        let maze_grid = Grid::new_maze(20, 12, seed);
+    fn spawn_new_maze(commands: &mut Commands, asset_server: &Res<AssetServer>, seed: u32) {
+        Self::spawn_grid(
+            commands,
+            asset_server,
+            Grid::new_maze(MAZE_WIDTH, MAZE_HEIGHT, seed),
+        );
+    }
+
+    fn spawn_grid(commands: &mut Commands, asset_server: &Res<AssetServer>, grid: Grid) {
+        let texture_handle: Handle<Image> = asset_server.load(PLAYER_IMAGE_PATH);
 
         commands.spawn(Self::new_overlay()).with_children(|parent| {
-            // Maze
+            // Grid
             parent
                 .spawn((
                     NodeBundle {
@@ -78,11 +96,11 @@ impl Minigame {
                         background_color: Color::GREEN.into(),
                         ..default()
                     },
-                    maze_grid.clone(),
+                    grid.clone(),
                 ))
                 .with_children(|parent| {
                     // Rows
-                    for row in maze_grid.cells {
+                    for row in grid.cells {
                         parent
                             .spawn(NodeBundle {
                                 style: Style {
@@ -98,6 +116,18 @@ impl Minigame {
                                 // Cells
                                 for cell in row {
                                     let mut border = UiRect { ..default() };
+                                    let mut background_color = Color::ORANGE.into();
+
+                                    // TODO: impliment sprites for all CellTypes in UI
+                                    if cell.cell_type == CellType::Chair {
+                                        background_color = Color::BLUE.into();
+                                    }
+                                    if cell.cell_type == CellType::SolidWall {
+                                        background_color = Color::GRAY.into();
+                                    }
+                                    if cell.cell_type == CellType::Table {
+                                        background_color = Color::PURPLE.into();
+                                    }
 
                                     if cell.top_wall {
                                         border.top = Val::Px(2.0);
@@ -120,8 +150,8 @@ impl Minigame {
                                                 border,
                                                 ..default()
                                             },
-                                            background_color: Color::ORANGE.into(),
                                             border_color: Color::BLACK.into(),
+                                            background_color,
                                             ..default()
                                         },
                                         cell,
@@ -147,7 +177,8 @@ impl Minigame {
                         .with_children(|parent| {
                             // Minigame Player
                             parent.spawn((
-                                NodeBundle {
+                                ImageBundle {
+                                    image: UiImage::new(texture_handle),
                                     style: Style {
                                         height: Val::Px(MINIGAME_PLAYER_HEIGHT),
                                         width: Val::Px(MINIGAME_PLAYER_WIDTH),
@@ -155,7 +186,6 @@ impl Minigame {
                                         left: Val::Px(0.0),
                                         ..default()
                                     },
-                                    background_color: Color::RED.into(),
                                     ..default()
                                 },
                                 MinigamePlayer,
@@ -237,11 +267,17 @@ impl Minigame {
 
 fn handle_set_minigame(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut set_minigame_event_reader: EventReader<SetMinigameEvent>,
 ) {
     for event in set_minigame_event_reader.read() {
         commands.insert_resource(NextState(Some(event.minigame_state)));
-        Minigame::spawn_new(&mut commands, &event.minigame_state, event.seed);
+        Minigame::spawn_new(
+            &mut commands,
+            &asset_server,
+            &event.minigame_state,
+            event.seed,
+        );
         return;
     }
 }

@@ -1,5 +1,7 @@
 use bevy::{prelude::*, utils::HashSet};
 
+use crate::utils::proc_gen_num;
+
 #[derive(Clone, Component, Debug)]
 pub struct Grid {
     pub cells: Vec<Vec<Cell>>,
@@ -11,6 +13,7 @@ pub enum CellType {
     #[default]
     Empty,
     Chair,
+    SolidWall,
     Table,
 }
 
@@ -48,10 +51,30 @@ impl Grid {
         grid
     }
 
+    pub fn new_house(width: usize, height: usize, seed: u32) -> Self {
+        let mut house_grid = Self::new_empty(width, height, seed);
+
+        for i in 2..15 {
+            let x = proc_gen_num(seed, i, height);
+            let y = proc_gen_num(seed, i + height + 1, width);
+            if let Some(cell) = house_grid.at(x, y) {
+                if i < 6 {
+                    cell.cell_type = CellType::Chair;
+                } else if i < 12 {
+                    cell.cell_type = CellType::Table;
+                } else {
+                    cell.cell_type = CellType::SolidWall;
+                }
+            }
+        }
+
+        house_grid
+    }
+
     pub fn new_maze(width: usize, height: usize, seed: u32) -> Self {
-        let mut maze = Self::new_walled(width, height, seed);
-        walk_maze(&mut maze);
-        maze
+        let mut maze_grid = Self::new_walled(width, height, seed);
+        walk_maze(&mut maze_grid);
+        maze_grid
     }
 
     pub fn width(&self) -> usize {
@@ -165,6 +188,7 @@ impl Cell {
         match self.cell_type {
             CellType::Empty => true,
             CellType::Chair => false,
+            CellType::SolidWall => false,
             CellType::Table => false,
         }
     }
@@ -250,8 +274,7 @@ fn get_next_pos(
     }
 
     // Procedurally generate next pos from number of cells walked & seed
-    let index =
-        (((grid.seed as usize * walked.len()) as f64).sqrt()) as usize % posib_next_pos_list.len();
+    let index = proc_gen_num(grid.seed, walked.len(), posib_next_pos_list.len());
 
     if let Some(pos) = posib_next_pos_list.get(index) {
         return Some(pos.to_owned());
