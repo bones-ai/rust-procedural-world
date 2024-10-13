@@ -18,7 +18,7 @@ pub struct GroundTiles(pub HashSet<(i32, i32)>);
 #[derive(Resource)]
 struct CurrentChunks(HashMap<(i32, i32), Vec<Entity>>);
 #[derive(Resource)]
-struct GenerationSeed(u32);
+pub struct GenerationSeed(pub u32);
 #[derive(Event)]
 pub struct ResetTerrainEvent;
 
@@ -33,10 +33,8 @@ pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
-        let mut rng = rand::thread_rng();
         app.insert_resource(GroundTiles(HashSet::new()))
             .insert_resource(CurrentChunks(HashMap::new()))
-            .insert_resource(GenerationSeed(rng.gen()))
             .add_systems(Update, handle_terrain_reset_event)
             .add_systems(Update, despawn_chunks)
             .add_systems(

@@ -44,5 +44,6 @@ pub const HOUSE_WIDTH: usize = 10;
 pub const MAZE_HEIGHT: usize = 12;
 pub const MAZE_WIDTH: usize = 16;
 
-// Args
+// Misc
 pub const ARG_DISABLE_FULLSCREEN: &str = "no-fullscreen";
+pub const SEED_FILE_PATH: &str = "seed";

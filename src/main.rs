@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, fs, io};
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -9,6 +9,7 @@ use bevy_pancam::{PanCam, PanCamPlugin};
 
 use island_procgen::{minigame::MinigamePlugin, player::PlayerPlugin, terrain::TerrainPlugin};
 use island_procgen::{terrain::ResetTerrainEvent, *};
+use terrain::GenerationSeed;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -17,6 +18,8 @@ fn main() {
     if !args.contains(&ARG_DISABLE_FULLSCREEN.to_string()) {
         mode = bevy::window::WindowMode::Fullscreen;
     }
+
+    let seed = init_seed();
 
     App::new()
         .add_plugins(
@@ -32,6 +35,7 @@ fn main() {
                     ..default()
                 }),
         )
+        .insert_resource(GenerationSeed(seed))
         .insert_resource(Msaa::Off)
         .insert_resource(ClearColor(Color::rgba_u8(
             BG_COLOR.0, BG_COLOR.1, BG_COLOR.2, 0,
@@ -60,4 +64,45 @@ fn handle_settings_input(keys: Res<Input<KeyCode>>, mut writer: EventWriter<Rese
     }
 
     writer.send(ResetTerrainEvent);
+}
+
+fn init_seed() -> u32 {
+    let seed_str = if fs::exists(SEED_FILE_PATH).unwrap() {
+        let content =
+            String::from_utf8(fs::read(SEED_FILE_PATH).expect("Failed to read seed file"))
+                .expect("Failed to encode seed file");
+        let lines: Vec<&str> = content.split("\n").collect();
+
+        if let Some(line) = lines.first() {
+            line.to_string()
+        } else {
+            prompt_seed_str_input()
+        }
+    } else {
+        let input = prompt_seed_str_input();
+        fs::write(SEED_FILE_PATH, &input).expect("Failed to write seed file");
+
+        input
+    };
+
+    seed_str
+        .trim()
+        .split("")
+        .map(|c| {
+            c.as_bytes()
+                .iter()
+                .map(|i| i.to_owned() as u32)
+                .fold(0, |acc, i| acc + i)
+        })
+        .fold(0, |acc: u32, j: u32| acc.wrapping_add(j))
+}
+
+fn prompt_seed_str_input() -> String {
+    let mut input = String::new();
+    println!("Please enter world seed, and then press ENTER:");
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed read to input");
+
+    input.trim().to_owned()
 }
