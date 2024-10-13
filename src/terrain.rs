@@ -3,7 +3,8 @@ use std::time::Duration;
 use bevy::math::{vec2, vec3};
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
-use bevy::utils::{HashMap, HashSet};
+use bevy::utils::hashbrown::HashSet;
+use bevy::utils::HashMap;
 use noise::{NoiseFn, Perlin};
 use rand::Rng;
 
@@ -13,6 +14,8 @@ use crate::*;
 
 #[derive(Component)]
 pub struct TileComponent;
+#[derive(Component)]
+pub struct PUID(pub u32);
 #[derive(Resource)]
 pub struct GroundTiles(pub HashSet<(i32, i32)>);
 #[derive(Resource)]
@@ -24,6 +27,7 @@ pub struct ResetTerrainEvent;
 
 #[derive(Component, Eq, PartialEq, Hash)]
 pub struct Tile {
+    pub puid: u32,
     pub pos: (i32, i32),
     pub sprite: usize,
     pub z_index: i32,
@@ -70,7 +74,10 @@ fn handle_terrain_reset_event(
     ground_tiles.0.clear();
 
     let mut rng = rand::thread_rng();
-    seed.0 = rng.gen();
+    let new_seed_str = rng.gen::<u32>().to_string();
+    println!("Seed set to : {}", new_seed_str);
+    let new_seed = seed_from_seed_str(new_seed_str);
+    seed.0 = new_seed;
 
     // Trigger world re-generation
     let (x, y) = player_pos.0;
@@ -175,7 +182,7 @@ fn handle_player_chunk_update_event(
             // Ignore edges
             // This will help in better player visualization when going from land to water
             updated_ground_map.insert((*x, *y));
-            tiles.insert(Tile::new((*x, *y), tile, 0));
+            tiles.insert(Tile::new((*x, *y), tile, 0, seed.0));
         }
         ground_tiles.0.extend(updated_ground_map);
 
@@ -184,18 +191,21 @@ fn handle_player_chunk_update_event(
             let (x, y) = grid_to_world(t.pos.0 as f32, t.pos.1 as f32);
             let (x, y) = center_to_top_left(x, y);
 
-            let e = commands
-                .spawn((
-                    SpriteSheetBundle {
-                        texture_atlas: handle.clone(),
-                        sprite: TextureAtlasSprite::new(t.sprite),
-                        transform: Transform::from_scale(Vec3::splat(SPRITE_SCALE_FACTOR as f32))
-                            .with_translation(vec3(x, y, t.z_index as f32)),
-                        ..default()
-                    },
-                    TileComponent,
-                ))
-                .id();
+            let sprite_sheet_bundle = SpriteSheetBundle {
+                texture_atlas: handle.clone(),
+                sprite: TextureAtlasSprite::new(t.sprite),
+                transform: Transform::from_scale(Vec3::splat(SPRITE_SCALE_FACTOR as f32))
+                    .with_translation(vec3(x, y, t.z_index as f32)),
+                ..default()
+            };
+
+            let e = if t.z_index <= 0 {
+                commands.spawn((sprite_sheet_bundle, TileComponent)).id()
+            } else {
+                commands
+                    .spawn((sprite_sheet_bundle, TileComponent, t.puid_component()))
+                    .id()
+            };
 
             current_chunks
                 .0
@@ -236,7 +246,7 @@ fn gen_chunk(gen_seed: u32, start: (i32, i32)) -> (HashSet<Tile>, HashSet<(i32, 
 
             // Dense Forest
             if (noise_val > 0.5 || noise_val3 > 0.98) && chance > 0.2 {
-                tiles.insert(Tile::new((x, y), 27, 5));
+                tiles.insert(Tile::new((x, y), 27, 5, gen_seed));
                 continue;
             }
             // Patch Forest
@@ -247,7 +257,7 @@ fn gen_chunk(gen_seed: u32, start: (i32, i32)) -> (HashSet<Tile>, HashSet<(i32, 
                 } else {
                     rng.gen_range(24..=25)
                 };
-                tiles.insert(Tile::new((x, y), tile, 3));
+                tiles.insert(Tile::new((x, y), tile, 3, gen_seed));
                 continue;
             }
             // Sparse Forest
@@ -258,14 +268,14 @@ fn gen_chunk(gen_seed: u32, start: (i32, i32)) -> (HashSet<Tile>, HashSet<(i32, 
                 } else {
                     rng.gen_range(24..=25)
                 };
-                tiles.insert(Tile::new((x, y), tile, 3));
+                tiles.insert(Tile::new((x, y), tile, 3, gen_seed));
                 continue;
             }
 
             // Bones
             if noise_val > 0.3 && noise_val < 0.5 && noise_val3 < 0.5 && chance > 0.98 {
                 let tile = rng.gen_range(40..=43);
-                tiles.insert(Tile::new((x, y), tile, 1));
+                tiles.insert(Tile::new((x, y), tile, 1, gen_seed));
                 continue;
             }
 
@@ -280,10 +290,10 @@ fn gen_chunk(gen_seed: u32, start: (i32, i32)) -> (HashSet<Tile>, HashSet<(i32, 
                     } else {
                         rng.gen_range(16..=17)
                     };
-                    tiles.insert(Tile::new((x, y), tile, 8));
+                    tiles.insert(Tile::new((x, y), tile, 8, gen_seed));
                 } else {
                     if noise_val > 0.2 && noise_val < 0.3 && noise_val3 < 0.3 && chance > 0.9 {
-                        tiles.insert(Tile::new((x, y), 32, 1));
+                        tiles.insert(Tile::new((x, y), 32, 1, gen_seed));
                     }
                 }
 
@@ -324,11 +334,27 @@ fn process_tile((x, y): (i32, i32), occupied: &HashSet<(i32, i32)>) -> (i32, usi
 }
 
 impl Tile {
-    fn new(pos: (i32, i32), sprite: usize, z_index: i32) -> Self {
+    fn new(pos: (i32, i32), sprite: usize, z_index: i32, seed: u32) -> Self {
+        let chunk_pos = grid_to_chunk(pos.0 as f32, pos.1 as f32);
+        let puid = gen_puid(pos, chunk_pos, seed);
         Self {
+            puid,
             pos,
             sprite,
             z_index,
         }
     }
+
+    fn puid_component(&self) -> PUID {
+        PUID(self.puid)
+    }
+}
+
+// Gen a deterministic unique id
+fn gen_puid(pos: (i32, i32), chunk_pos: (i32, i32), seed: u32) -> u32 {
+    let (x, y) = pos;
+    let (chunk_x, chunk_y) = chunk_pos;
+
+    let base = ((x + chunk_x * 31) * 31 + y + chunk_y * 31) as u32;
+    base.wrapping_add(seed)
 }

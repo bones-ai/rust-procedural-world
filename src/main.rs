@@ -10,6 +10,7 @@ use bevy_pancam::{PanCam, PanCamPlugin};
 use island_procgen::{minigame::MinigamePlugin, player::PlayerPlugin, terrain::TerrainPlugin};
 use island_procgen::{terrain::ResetTerrainEvent, *};
 use terrain::GenerationSeed;
+use utils::seed_from_seed_str;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -71,12 +72,11 @@ fn init_seed() -> u32 {
         let content =
             String::from_utf8(fs::read(SEED_FILE_PATH).expect("Failed to read seed file"))
                 .expect("Failed to encode seed file");
-        let lines: Vec<&str> = content.split("\n").collect();
 
-        if let Some(line) = lines.first() {
-            line.to_string()
-        } else {
+        if content.is_empty() {
             prompt_seed_str_input()
+        } else {
+            content
         }
     } else {
         let input = prompt_seed_str_input();
@@ -85,16 +85,7 @@ fn init_seed() -> u32 {
         input
     };
 
-    seed_str
-        .trim()
-        .split("")
-        .map(|c| {
-            c.as_bytes()
-                .iter()
-                .map(|i| i.to_owned() as u32)
-                .fold(0, |acc, i| acc + i)
-        })
-        .fold(0, |acc: u32, j: u32| acc.wrapping_add(j))
+    seed_from_seed_str(seed_str)
 }
 
 fn prompt_seed_str_input() -> String {

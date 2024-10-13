@@ -38,6 +38,19 @@ pub fn world_to_chunk(x: f32, y: f32) -> (i32, i32) {
     grid_to_chunk(x, y)
 }
 
+pub fn seed_from_seed_str(seed_str: String) -> u32 {
+    seed_str
+        .trim()
+        .split("")
+        .map(|c| {
+            c.as_bytes()
+                .iter()
+                .map(|i| i.to_owned() as u32)
+                .fold(0, |acc, i| acc + i)
+        })
+        .fold(0, |acc: u32, j: u32| acc.wrapping_add(j))
+}
+
 pub fn diff_exceeds_max(n1: f32, n2: f32, max: f32) -> bool {
     let diff = if n1 >= n2 { n1 - n2 } else { n2 - n1 };
     diff > max

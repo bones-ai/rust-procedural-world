@@ -1,6 +1,7 @@
 use bevy::math::vec2;
 use bevy::{math::vec3, prelude::*, utils::Instant};
 use minigame::{MinigameState, SetMinigameEvent};
+use terrain::PUID;
 
 use crate::terrain::{GroundTiles, TileComponent};
 use crate::utils::*;
@@ -351,12 +352,12 @@ fn camera_follow_player(
 
 fn handle_player_hit_terrain(
     player_query: Query<&Transform, With<Player>>,
-    mut terrain_query: Query<(Entity, &Transform, &mut TextureAtlasSprite), With<TileComponent>>,
+    mut terrain_query: Query<(&PUID, &Transform, &mut TextureAtlasSprite), With<TileComponent>>,
     keyboard_input: Res<Input<KeyCode>>,
     mut set_minigame_event_writer: EventWriter<SetMinigameEvent>,
 ) {
     if let Ok(player_transform) = player_query.get_single() {
-        for (terrain_entity, terrain_transform, terrain_ta_sprite) in terrain_query.iter_mut() {
+        for (puid, terrain_transform, terrain_ta_sprite) in terrain_query.iter_mut() {
             if !keyboard_input.just_pressed(KeyCode::Z) {
                 continue;
             }
@@ -378,12 +379,12 @@ fn handle_player_hit_terrain(
             if terrain_ta_sprite.index == ONE_WINDOWED_HOUSE_SPRITE_INDEX {
                 set_minigame_event_writer.send(SetMinigameEvent {
                     minigame_state: minigame::MinigameState::House,
-                    seed: terrain_entity.index(),
+                    seed: puid.0,
                 });
             } else if terrain_ta_sprite.index == FOUR_WINDOWED_HOUSE_SPRITE_INDEX {
                 set_minigame_event_writer.send(SetMinigameEvent {
                     minigame_state: minigame::MinigameState::Maze,
-                    seed: terrain_entity.index(),
+                    seed: puid.0,
                 });
             }
         }

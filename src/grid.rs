@@ -55,8 +55,8 @@ impl Grid {
         let mut house_grid = Self::new_empty(width, height, seed);
 
         for i in 2..15 {
-            let x = proc_gen_num(seed, i, height);
-            let y = proc_gen_num(seed, i + height + 1, width);
+            let x = proc_gen_num(seed, i, height) + 1;
+            let y = proc_gen_num(seed, i + height + 1, width) + 1;
             if let Some(cell) = house_grid.at(x, y) {
                 if i < 6 {
                     cell.cell_type = CellType::Chair;
