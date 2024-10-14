@@ -217,7 +217,7 @@ fn handle_player_chunk_update_event(
 }
 
 fn gen_chunk(gen_seed: u32, start: (i32, i32)) -> (HashSet<Tile>, HashSet<(i32, i32)>) {
-    let mut rng = rand::thread_rng();
+    let mut rng = seed_to_rng(gen_seed);
     let noise = Perlin::new(gen_seed);
 
     let mut tiles = HashSet::new();
