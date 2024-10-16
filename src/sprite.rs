@@ -1,3 +1,4 @@
+use noise::{NoiseFn, Perlin};
 use rand::*;
 
 const BIRTH_LIMIT: u32 = 5;
@@ -195,6 +196,294 @@ pub fn colorscheme_generator_generate_new_colorscheme(
     }
 
     cols
+}
+
+pub fn color_filler_fill_colors(
+    map: &mut Vec<Vec<bool>>,
+    colorscheme: Vec<(f32, f32, f32, f32)>,
+    eye_colorscheme: Vec<(f32, f32, f32, f32)>,
+    n_colors: usize,
+    outline: bool,
+) -> FillColors {
+    let noise1 = Perlin::new(randu());
+    let noise2 = Perlin::new(randu());
+
+    let groups = _flood_fill(
+        map,
+        colorscheme.clone(),
+        eye_colorscheme.clone(),
+        n_colors,
+        false,
+        outline,
+        noise1,
+        noise2,
+    );
+
+    let negative_groups = _flood_fill_negative(
+        map,
+        colorscheme,
+        eye_colorscheme,
+        n_colors,
+        outline,
+        noise1,
+        noise2,
+    );
+
+    FillColors {
+        groups,
+        negative_groups,
+    }
+}
+
+fn _flood_fill_negative(
+    map: &mut Vec<Vec<bool>>,
+    colorscheme: Vec<(f32, f32, f32, f32)>,
+    eye_colorscheme: Vec<(f32, f32, f32, f32)>,
+    n_colors: usize,
+    outline: bool,
+    noise1: Perlin,
+    noise2: Perlin,
+) -> Vec<Group> {
+    let mut negative_map = vec![];
+    for x in 0..map.len() {
+        let mut arr = vec![];
+        for y in 0..map[x].len() {
+            arr.push(!_get_at_pos(map, (x as i32, y as i32)))
+        }
+        negative_map.push(arr);
+    }
+    return _flood_fill(
+        &mut negative_map,
+        colorscheme,
+        eye_colorscheme,
+        n_colors,
+        true,
+        outline,
+        noise1,
+        noise2,
+    );
+}
+
+fn _flood_fill(
+    map: &mut Vec<Vec<bool>>,
+    colorscheme: Vec<(f32, f32, f32, f32)>,
+    eye_colorscheme: Vec<(f32, f32, f32, f32)>,
+    n_colors: usize,
+    is_negative: bool,
+    outline: bool,
+    noise1: Perlin,
+    noise2: Perlin,
+) -> Vec<Group> {
+    let mut groups: Vec<Group> = vec![];
+    let mut checked_map = vec![];
+    for x in 0..map.len() {
+        let mut arr = vec![];
+        for _y in 0..map[x].len() {
+            arr.push(false);
+        }
+        checked_map.push(arr)
+    }
+    // bucket is all the cells that have been found through flood filling and whose neighbours will be checked next
+    let mut bucket: Vec<(i32, i32)> = vec![];
+    for x in 0..map.len() {
+        for y in 0..map[x].len() {
+            // haven't checked this cell yet
+            if !checked_map[x][y] {
+                checked_map[x][y] = true;
+                // if this cell is actually filled in the map
+                if map[x][y] {
+                    bucket.push((x as i32, y as i32));
+                    let mut group = Group {
+                        arr: vec![],
+                        valid: true,
+                    };
+                    // go through remaining cells in bucket
+                    while bucket.len() > 0 {
+                        let pos: (i32, i32) = match bucket.pop() {
+                            None => break,
+                            Some(p) => p,
+                        };
+                        // get neighbours
+                        let right = _get_at_pos(map, (pos.0 + 1, pos.1));
+                        let left = _get_at_pos(map, (pos.0 - 1, pos.1));
+                        let down = _get_at_pos(map, (pos.0, pos.1 + 1));
+                        let up = _get_at_pos(map, (pos.0, pos.1 - 1));
+                        // dont want negative groups that touch the edge of the sprite
+                        if is_negative {
+                            if !left || !up || !down || !right {
+                                group.valid = false;
+                            }
+                        }
+                        // also do a coloring step in this flood fill, speeds up processing a bit instead of doing it seperately
+                        let col = _get_color(
+                            map,
+                            pos,
+                            is_negative,
+                            right,
+                            left,
+                            down,
+                            up,
+                            colorscheme.clone(),
+                            eye_colorscheme.clone(),
+                            n_colors,
+                            outline,
+                            &mut group,
+                            noise1,
+                            noise2,
+                        );
+                        group.arr.push(GroupItem {
+                            position: pos,
+                            color: col,
+                        });
+                        // add neighbours to bucket to check
+                        if right
+                            && pos.0 >= 0
+                            && pos.1 >= 0
+                            && !checked_map[pos.0 as usize + 1][pos.1 as usize]
+                        {
+                            bucket.push((pos.0 + 1, pos.1));
+                            checked_map[(pos.0 + 1) as usize][pos.1 as usize] = true;
+                        }
+                        if left
+                            && pos.0 - 1 >= 0
+                            && pos.1 >= 0
+                            && !checked_map[(pos.0 - 1) as usize][pos.1 as usize]
+                        {
+                            bucket.push((pos.0 - 1, pos.1));
+                            checked_map[(pos.0 - 1) as usize][pos.1 as usize] = true;
+                        }
+                        if down
+                            && pos.0 >= 0
+                            && pos.1 + 1 >= 0
+                            && !checked_map[pos.0 as usize][(pos.1 + 1) as usize]
+                        {
+                            bucket.push((pos.0, pos.1 + 1));
+                            checked_map[pos.0 as usize][(pos.1 + 1) as usize] = true;
+                        }
+                        if up
+                            && pos.0 >= 0
+                            && pos.1 - 1 >= 0
+                            && !checked_map[pos.0 as usize][(pos.1 - 1) as usize]
+                        {
+                            bucket.push((pos.0, pos.1 - 1));
+                            checked_map[pos.0 as usize][(pos.1 - 1) as usize] = true;
+                        }
+                    }
+                    groups.push(group)
+                }
+            }
+        }
+    }
+    groups
+}
+
+fn _get_color(
+    map: &mut Vec<Vec<bool>>,
+    pos: (i32, i32),
+    is_negative: bool,
+    right: bool,
+    left: bool,
+    down: bool,
+    up: bool,
+    colorscheme: Vec<(f32, f32, f32, f32)>,
+    eye_colorscheme: Vec<(f32, f32, f32, f32)>,
+    n_colors: usize,
+    outline: bool,
+    group: &mut Group,
+    noise1: Perlin,
+    noise2: Perlin,
+) -> (f32, f32, f32, f32) {
+    let col_x = (pos.0 as f64 - (map.len() - 1) as f64 * 0.5).abs().ceil();
+    let mut n1 = (noise1.get([col_x, pos.1 as f64])).abs().powf(1.5) * 3.0;
+    let mut n2 = (noise2.get([col_x, pos.1 as f64])).abs().powf(1.5) * 3.0;
+    // highlight colors based on amount of neighbours
+    if !down {
+        if is_negative {
+            n2 -= 0.1;
+        } else {
+            n1 -= 0.45;
+            n1 *= 0.8;
+        }
+        if outline {
+            group.arr.push(GroupItem {
+                position: (pos.0, pos.1 + 1),
+                color: (0.0, 0.0, 0.0, 1.0),
+            });
+        }
+    }
+    if !right {
+        if is_negative {
+            n2 += 0.1;
+        } else {
+            n1 += 0.2;
+            n1 *= 1.1;
+        }
+        if outline {
+            group.arr.push(GroupItem {
+                position: (pos.0 + 1, pos.1),
+                color: (0.0, 0.0, 0.0, 1.0),
+            });
+        }
+    }
+    if !up {
+        if is_negative {
+            n2 += 0.15;
+        } else {
+            n1 += 0.45;
+            n1 *= 1.2;
+        }
+        if outline {
+            group.arr.push(GroupItem {
+                position: (pos.0, pos.1 - 1),
+                color: (0.0, 0.0, 0.0, 1.0),
+            });
+        }
+    }
+    if !left {
+        if is_negative {
+            n2 += 0.1;
+        } else {
+            n1 += 0.2;
+            n1 *= 1.1;
+        }
+        if outline {
+            group.arr.push(GroupItem {
+                position: (pos.0 - 1, pos.1),
+                color: (0.0, 0.0, 0.0, 1.0),
+            });
+        }
+    }
+    // highlight colors if the difference in colors between neighbours is big
+    let c_0 =
+        colorscheme[(noise1.get([col_x, pos.1 as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
+    let c_1 = colorscheme
+        [(noise1.get([col_x, (pos.1 - 1) as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
+    let c_2 = colorscheme
+        [(noise1.get([col_x, (pos.1 + 1) as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
+    let c_3 = colorscheme
+        [(noise1.get([col_x - 1.0, pos.1 as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
+    let c_4 = colorscheme
+        [(noise1.get([col_x + 1.0, pos.1 as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
+    let diff = ((c_0.0 - c_1.0).abs() + (c_0.1 - c_1.1).abs() + (c_0.2 - c_1.2).abs())
+        + ((c_0.0 - c_2.0).abs() + (c_0.1 - c_2.1.abs()) + (c_0.2 - c_2.2).abs())
+        + ((c_0.0 - c_3.0).abs() + (c_0.1 - c_3.1).abs() + (c_0.2 - c_3.2).abs())
+        + ((c_0.0 - c_4.0).abs() + (c_0.1 - c_4.1).abs() + (c_0.2 - c_4.2).abs());
+    if diff > 2.0 {
+        n1 += 0.3;
+        n1 *= 1.5;
+        n2 += 0.3;
+        n2 *= 1.5;
+    }
+    // actually choose a color
+    n1 = clamp(n1, 0.0, 1.0);
+    n1 = (n1 * (n_colors as f64 - 1.0)).floor();
+    n2 = clamp(n2, 0.0, 1.0);
+    n2 = (n2 * (n_colors as f64 - 1.0)).floor();
+    let mut col = colorscheme[n1 as usize];
+    if is_negative {
+        col = eye_colorscheme[n2 as usize];
+    }
+    col
 }
 
 fn rand_bool(chance: f32) -> bool {
