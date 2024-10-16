@@ -13,7 +13,7 @@ pub struct Size {
 #[derive(Debug)]
 pub struct GroupItem {
     pub position: (i32, i32),
-    pub color: (f32, f32, f32),
+    pub color: (f32, f32, f32, f32),
 }
 
 #[derive(Debug)]
@@ -147,6 +147,54 @@ fn _get_at_pos(map: &Vec<Vec<bool>>, pos: (i32, i32)) -> bool {
     }
 
     map[pos.0 as usize][pos.1 as usize]
+}
+
+pub fn colorscheme_generator_generate_new_colorscheme(
+    n_colors: usize,
+) -> Vec<(f32, f32, f32, f32)> {
+    let a = (
+        rand_range(0.0, 0.5),
+        rand_range(0.0, 0.5),
+        rand_range(0.0, 0.5),
+    );
+
+    let b = (
+        rand_range(0.1, 0.6),
+        rand_range(0.1, 0.6),
+        rand_range(0.1, 0.6),
+    );
+
+    let c = (
+        rand_range(0.15, 0.8),
+        rand_range(0.15, 0.8),
+        rand_range(0.15, 0.8),
+    );
+
+    let d = (
+        rand_range(0.0, 1.0),
+        rand_range(0.0, 1.0),
+        rand_range(0.0, 1.0),
+    );
+
+    let mut cols = vec![];
+    let n = (n_colors - 1) as f32;
+
+    for i in 0..n_colors {
+        let vec3 = (
+            // r
+            (a.0 + b.0 * (6.28318 * (c.0 * (i as f32 / n) + d.0)).cos()) + (i as f32 / n) * 0.8,
+            // g
+            (a.1 + b.1 * (6.28318 * (c.1 * (i as f32 / n) + d.1)).cos()) + (i as f32 / n) * 0.8,
+            // b
+            (a.2 + b.2 * (6.28318 * (c.2 * (i as f32 / n) + d.2)).cos()) + (i as f32 / n) * 0.8,
+            // a
+            1.0,
+        );
+
+        cols.push(vec3);
+    }
+
+    cols
 }
 
 fn rand_bool(chance: f32) -> bool {

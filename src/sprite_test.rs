@@ -7,7 +7,6 @@ fn test_sprites() {
 
     map = cellular_automata_do_steps(&mut map);
 
-    println!("{}", map.len());
-    println!("{}", map[0].len());
-    println!("{:?}", map);
+    let scheme = colorscheme_generator_generate_new_colorscheme(12);
+    let eye_scheme = colorscheme_generator_generate_new_colorscheme(12);
 }
