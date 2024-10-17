@@ -11,22 +11,26 @@ const DRAW_RECT: Size = Size { x: 400, y: 400 };
 const OUTLINE: bool = true;
 const SEED: u32 = 1234;
 
+const MOVEMENT: bool = true;
+const DRAW_SIZE: usize = 10;
+
 #[derive(Debug)]
 pub struct Size {
     pub x: usize,
     pub y: usize,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct GroupItem {
     pub position: (i32, i32),
     pub color: (f32, f32, f32, f32),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Group {
     pub arr: Vec<GroupItem>,
     pub valid: bool,
+    pub start_time: usize,
 }
 
 #[derive(Debug)]
@@ -41,6 +45,16 @@ pub struct GroupDrawer {
     pub negative_groups: Vec<Group>,
     pub draw_size: usize,
     pub position: (f32, f32),
+    pub children: Vec<CellDrawer>,
+}
+
+#[derive(Debug, Default)]
+pub struct CellDrawer {
+    pub cells: Vec<GroupItem>,
+    pub lifetime: usize,
+    pub movement: bool,
+    pub draw_size: usize,
+    pub is_eye: bool,
 }
 
 impl GroupDrawer {
@@ -48,8 +62,130 @@ impl GroupDrawer {
         GroupDrawer { ..default() }
     }
 
-    pub fn _ready() {
-        // TODO: ...
+    pub fn add_child(&mut self, cell_drawer: CellDrawer) {
+        self.children.push(cell_drawer);
+    }
+
+    pub fn _ready(&mut self) {
+        let mut largest: usize = 0;
+        for g in &self.groups {
+            largest = max(largest, g.arr.len());
+        }
+
+        let group_len = self.groups.len();
+
+        for i in (group_len as i32 - 1)..-1 {
+            if i < 0 {
+                continue;
+            }
+
+            if let Some(g) = self.groups.get_mut(i as usize) {
+                g.start_time = g.arr.len() + group_len;
+                if g.arr.len() as f32 >= largest as f32 * 0.25 {
+                    let mut cell_drawer = CellDrawer::new();
+                    cell_drawer.set_cells(g.arr.clone());
+                    cell_drawer.lifetime = g.start_time.clone();
+                    cell_drawer.movement = MOVEMENT;
+
+                    self.add_child(cell_drawer);
+                } else {
+                    self.groups.remove(i as usize);
+                }
+            }
+        }
+
+        for i in 0..self.negative_groups.len() {
+            let g = &mut self.negative_groups[i];
+            if g.valid {
+                let mut touching = false;
+                for g2 in &mut self.groups {
+                    if group_is_touching_group(&g, g2) {
+                        touching = true;
+                        if g.start_time != 0 {
+                            g2.start_time = g.start_time;
+                        } else {
+                            g.start_time = g2.start_time;
+                        }
+                    }
+                }
+
+                if touching {
+                    let mut cell_drawer = CellDrawer::new();
+                    cell_drawer.set_cells(g.arr.clone());
+
+                    cell_drawer.lifetime = g.start_time;
+                    cell_drawer.movement = MOVEMENT;
+
+                    if (g.arr.len() + self.negative_groups.len()) % 5 >= 3 {
+                        cell_drawer.set_eye();
+                    }
+
+                    self.add_child(cell_drawer);
+                }
+            }
+        }
+
+        for c in &mut self.children {
+            c.draw_size = DRAW_SIZE;
+        }
+    }
+}
+
+impl CellDrawer {
+    pub fn new() -> Self {
+        CellDrawer { ..default() }
+    }
+
+    pub fn set_cells(&mut self, cells: Vec<GroupItem>) {
+        self.cells = cells;
+    }
+
+    pub fn set_eye(&mut self) {
+        self.is_eye = true;
+    }
+
+    pub fn _draw(&self) {
+        let mut average: (i32, i32) = (0, 0);
+        let mut size: f64 = 0.0;
+        let mut eye_cutoff: f64 = 0.0;
+        if self.is_eye {
+            for c in self.cells.iter() {
+                size += 1.0;
+                average.0 += c.position.0;
+                average.1 += c.position.1;
+            }
+            eye_cutoff = size.sqrt() * 0.3;
+        }
+
+        average.0 = average.0 / self.cells.len() as i32;
+        average.1 = average.1 / self.cells.len() as i32;
+
+        for c in self.cells.iter() {
+            // TODO:
+            // draw_rect(
+            //     Rect2(
+            //         c.position.0 * DRAW_SIZE,
+            //         c.position.1 * DRAW_SIZE,
+            //         DRAW_SIZE,
+            //         DRAW_SIZE,
+            //     ),
+            //     c.color,
+            // )
+
+            let dist = dist_between(average, c.position);
+            if self.is_eye && dist < eye_cutoff {
+                // TODO:
+                // draw_rect(
+                //     Rect2(
+                //         c.position.0 * DRAW_SIZE,
+                //         c.position.1 * DRAW_SIZE,
+                //         DRAW_SIZE,
+                //         DRAW_SIZE,
+                //     ),
+                //     c.color.darkened(0.85),
+                // );
+            }
+        }
     }
 }
 
@@ -357,6 +493,7 @@ fn _flood_fill(
                     let mut group = Group {
                         arr: vec![],
                         valid: true,
+                        start_time: 0,
                     };
                     // go through remaining cells in bucket
                     while bucket.len() > 0 {
@@ -547,6 +684,24 @@ fn _get_color(
     col
 }
 
+fn group_is_touching_group(g1: &Group, g2: &Group) -> bool {
+    for c in &g1.arr {
+        for c2 in &g2.arr {
+            if c.position.0 == c2.position.0 {
+                if c.position.1 == c2.position.1 + 1 || c.position.1 == c2.position.1 - 1 {
+                    return true;
+                }
+            } else if c.position.1 == c2.position.1 {
+                if c.position.0 == c2.position.0 + 1 || c.position.0 == c2.position.0 - 1 {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 fn rand_bool(chance: f32) -> bool {
     rand_range(0.0, 1.0) > chance
 }
@@ -579,4 +734,17 @@ fn min(n1: usize, n2: usize) -> usize {
         return n2;
     }
     n1
+}
+
+fn max(n1: usize, n2: usize) -> usize {
+    if n1 < n2 {
+        return n2;
+    }
+    n1
+}
+
+fn dist_between(t1: (i32, i32), t2: (i32, i32)) -> f64 {
+    let dx = (t2.0 - t1.0) as f64;
+    let dy = (t2.1 - t1.1) as f64;
+    (dx.powi(2) + dy.powi(2)).sqrt()
 }
