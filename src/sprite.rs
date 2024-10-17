@@ -137,7 +137,8 @@ impl GroupDrawer {
         for _ in 0..SIZE.y {
             let mut row = vec![];
             for _ in 0..SIZE.x {
-                row.push((0.0, 0.0, 0.0, 0.0));
+                // Solid white
+                row.push((255.0, 255.0, 255.0, 1.0));
             }
             board.push(row);
         }
@@ -628,7 +629,7 @@ fn _get_color(
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0, pos.1 + 1),
-                color: (3.0, 3.0, 3.0, 1.0),
+                color: (0.0, 0.0, 0.0, 1.0),
             });
         }
     }
@@ -642,7 +643,7 @@ fn _get_color(
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0 + 1, pos.1),
-                color: (3.0, 3.0, 3.0, 1.0),
+                color: (0.0, 0.0, 0.0, 1.0),
             });
         }
     }
@@ -656,7 +657,7 @@ fn _get_color(
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0, pos.1 - 1),
-                color: (3.0, 3.0, 3.0, 1.0),
+                color: (0.0, 0.0, 0.0, 1.0),
             });
         }
     }
@@ -670,7 +671,7 @@ fn _get_color(
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0 - 1, pos.1),
-                color: (3.0, 3.0, 3.0, 1.0),
+                color: (0.0, 0.0, 0.0, 1.0),
             });
         }
     }
@@ -801,17 +802,11 @@ fn html_from_board(board: Vec<Vec<(f32, f32, f32, f32)>>) -> String {
 
     for row in board {
         for (r, g, b, a) in row {
-            let background_color = if r != 0.0 || g != 0.0 || b != 0.0 {
-                rgba_to_hex((r, g, b, a))
-            } else {
-                "white".to_owned()
-            };
-
             let div = format!(
                 r#"
                     <div style="height:8px; width:8px; background-color:{}; border:solid black 1px;"></div>
                 "#,
-                background_color,
+                rgba_to_hex((r, g, b, a)),
             );
 
             board_inner_html.push(div.trim().to_owned());
