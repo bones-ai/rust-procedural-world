@@ -74,7 +74,7 @@ impl GroupDrawer {
 
         let group_len = self.groups.len();
 
-        for i in (group_len as i32 - 1)..-1 {
+        for i in (0..group_len as i32).rev() {
             if i < 0 {
                 continue;
             }
@@ -127,6 +127,12 @@ impl GroupDrawer {
 
         for c in &mut self.children {
             c.draw_size = DRAW_SIZE;
+        }
+    }
+
+    pub fn draw_all(&self) {
+        for c in self.children.iter() {
+            c._draw();
         }
     }
 }

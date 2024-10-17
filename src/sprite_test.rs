@@ -3,18 +3,21 @@ use crate::sprite::*;
 
 #[test]
 fn test_sprites() {
-    let n_colors = 12;
+    let mut gd = _get_group_drawer(false);
 
-    let mut map = _get_random_map(&Size { x: 45, y: 45 });
+    gd._ready();
 
-    map = cellular_automata_do_steps(&mut map);
+    println!("gd.len(): {}", gd.children.len());
+    for i in 0..gd.children.len() {
+        let c = &gd.children[i];
+        println!("gd.children[{}].cells.len(): {}", i, c.cells.len());
+    }
 
-    let scheme = colorscheme_generator_generate_new_colorscheme(n_colors);
-    let eye_scheme = colorscheme_generator_generate_new_colorscheme(n_colors);
+    gd.draw_all();
 
-    let all_groups = color_filler_fill_colors(&mut map, scheme, eye_scheme, n_colors, true);
-
-    let mut group_drawer = GroupDrawer::new();
-    group_drawer.groups = all_groups.groups;
-    group_drawer.negative_groups = all_groups.negative_groups;
+    println!("gd.len(): {}", gd.children.len());
+    for i in 0..gd.children.len() {
+        let c = &gd.children[i];
+        println!("gd.children[{}].cells.len(): {}", i, c.cells.len());
+    }
 }
