@@ -1,3 +1,5 @@
+use std::fs;
+
 use bevy::prelude::default;
 use noise::{NoiseFn, Perlin};
 use rand::*;
@@ -39,7 +41,7 @@ pub struct FillColors {
     pub negative_groups: Vec<Group>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct GroupDrawer {
     pub groups: Vec<Group>,
     pub negative_groups: Vec<Group>,
@@ -48,7 +50,7 @@ pub struct GroupDrawer {
     pub children: Vec<CellDrawer>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct CellDrawer {
     pub cells: Vec<GroupItem>,
     pub lifetime: usize,
@@ -130,10 +132,26 @@ impl GroupDrawer {
         }
     }
 
-    pub fn draw_all(&self) {
-        for c in self.children.iter() {
-            c._draw();
+    pub fn draw_all(&self) -> Vec<Vec<(f32, f32, f32, f32)>> {
+        let mut board: Vec<Vec<(f32, f32, f32, f32)>> = vec![];
+        for _ in 0..SIZE.y {
+            let mut row = vec![];
+            for _ in 0..SIZE.x {
+                row.push((0.0, 0.0, 0.0, 0.0));
+            }
+            board.push(row);
         }
+
+        for c in self.children.iter() {
+            c._draw(&mut board);
+        }
+        board
+    }
+
+    pub fn write_html_file(&self, html_file_path: &str) {
+        let board = self.draw_all();
+        let html = html_from_board(board);
+        fs::write(html_file_path, html).unwrap();
     }
 }
 
@@ -150,7 +168,7 @@ impl CellDrawer {
         self.is_eye = true;
     }
 
-    pub fn _draw(&self) {
+    pub fn _draw(&self, board: &mut Vec<Vec<(f32, f32, f32, f32)>>) {
         let mut average: (i32, i32) = (0, 0);
         let mut size: f64 = 0.0;
         let mut eye_cutoff: f64 = 0.0;
@@ -167,29 +185,19 @@ impl CellDrawer {
         average.1 = average.1 / self.cells.len() as i32;
 
         for c in self.cells.iter() {
-            // TODO:
-            // draw_rect(
-            //     Rect2(
-            //         c.position.0 * DRAW_SIZE,
-            //         c.position.1 * DRAW_SIZE,
-            //         DRAW_SIZE,
-            //         DRAW_SIZE,
-            //     ),
-            //     c.color,
-            // )
+            if c.position.0 < 0 && c.position.1 < 0 {
+                continue;
+            }
+            if let Some(row) = board.get(c.position.1 as usize) {
+                if let Some(_) = row.get(c.position.0 as usize) {
+                    let color = if self.is_eye && dist_between(average, c.position) < eye_cutoff {
+                        darken_rgba(c.color, 0.85)
+                    } else {
+                        c.color
+                    };
 
-            let dist = dist_between(average, c.position);
-            if self.is_eye && dist < eye_cutoff {
-                // TODO:
-                // draw_rect(
-                //     Rect2(
-                //         c.position.0 * DRAW_SIZE,
-                //         c.position.1 * DRAW_SIZE,
-                //         DRAW_SIZE,
-                //         DRAW_SIZE,
-                //     ),
-                //     c.color.darkened(0.85),
-                // );
+                    board[c.position.1 as usize][c.position.0 as usize] = color;
+                }
             }
         }
     }
@@ -327,8 +335,10 @@ fn _get_neighbours(map: &Vec<Vec<bool>>, pos: (usize, usize)) -> u32 {
     for i in -1i32..2 {
         for j in -1i32..2 {
             if !(i == 0 && j == 0) {
-                if _get_at_pos(map, (pos.0 as i32 + i, pos.1 as i32 + j)) {
-                    count += 1;
+                if let Some(val) = _get_at_pos(map, (pos.0 as i32 + i, pos.1 as i32 + j)) {
+                    if val {
+                        count += 1;
+                    }
                 }
             }
         }
@@ -337,20 +347,20 @@ fn _get_neighbours(map: &Vec<Vec<bool>>, pos: (usize, usize)) -> u32 {
     count
 }
 
-fn _get_at_pos(map: &Vec<Vec<bool>>, pos: (i32, i32)) -> bool {
+fn _get_at_pos(map: &Vec<Vec<bool>>, pos: (i32, i32)) -> Option<bool> {
+    if pos.0 < 0 || pos.1 < 0 {
+        return None;
+    }
+
     if pos.0 < 0
         || pos.0 >= map.len() as i32
         || pos.1 < 0
         || (pos.0 >= 0 && pos.1 >= map[pos.0 as usize].len() as i32)
     {
-        return false;
+        return Some(false);
     }
 
-    if pos.0 < 0 || pos.1 < 0 {
-        return false;
-    }
-
-    map[pos.0 as usize][pos.1 as usize]
+    Some(map[pos.0 as usize][pos.1 as usize])
 }
 
 pub fn colorscheme_generator_generate_new_colorscheme(
@@ -451,7 +461,9 @@ fn _flood_fill_negative(
     for x in 0..map.len() {
         let mut arr = vec![];
         for y in 0..map[x].len() {
-            arr.push(!_get_at_pos(map, (x as i32, y as i32)))
+            if let Some(val) = _get_at_pos(map, (x as i32, y as i32)) {
+                arr.push(!val);
+            }
         }
         negative_map.push(arr);
     }
@@ -514,7 +526,7 @@ fn _flood_fill(
                         let up = _get_at_pos(map, (pos.0, pos.1 - 1));
                         // dont want negative groups that touch the edge of the sprite
                         if is_negative {
-                            if !left || !up || !down || !right {
+                            if left.is_none() || up.is_none() || down.is_none() || right.is_none() {
                                 group.valid = false;
                             }
                         }
@@ -540,7 +552,8 @@ fn _flood_fill(
                             color: col,
                         });
                         // add neighbours to bucket to check
-                        if right
+                        if right.is_some()
+                            && right.unwrap()
                             && pos.0 >= 0
                             && pos.1 >= 0
                             && !checked_map[pos.0 as usize + 1][pos.1 as usize]
@@ -548,7 +561,8 @@ fn _flood_fill(
                             bucket.push((pos.0 + 1, pos.1));
                             checked_map[(pos.0 + 1) as usize][pos.1 as usize] = true;
                         }
-                        if left
+                        if left.is_some()
+                            && left.unwrap()
                             && pos.0 - 1 >= 0
                             && pos.1 >= 0
                             && !checked_map[(pos.0 - 1) as usize][pos.1 as usize]
@@ -556,7 +570,8 @@ fn _flood_fill(
                             bucket.push((pos.0 - 1, pos.1));
                             checked_map[(pos.0 - 1) as usize][pos.1 as usize] = true;
                         }
-                        if down
+                        if down.is_some()
+                            && down.unwrap()
                             && pos.0 >= 0
                             && pos.1 + 1 >= 0
                             && !checked_map[pos.0 as usize][(pos.1 + 1) as usize]
@@ -564,7 +579,8 @@ fn _flood_fill(
                             bucket.push((pos.0, pos.1 + 1));
                             checked_map[pos.0 as usize][(pos.1 + 1) as usize] = true;
                         }
-                        if up
+                        if up.is_some()
+                            && up.unwrap()
                             && pos.0 >= 0
                             && pos.1 - 1 >= 0
                             && !checked_map[pos.0 as usize][(pos.1 - 1) as usize]
@@ -585,10 +601,10 @@ fn _get_color(
     map: &mut Vec<Vec<bool>>,
     pos: (i32, i32),
     is_negative: bool,
-    right: bool,
-    left: bool,
-    down: bool,
-    up: bool,
+    right: Option<bool>,
+    left: Option<bool>,
+    down: Option<bool>,
+    up: Option<bool>,
     colorscheme: Vec<(f32, f32, f32, f32)>,
     eye_colorscheme: Vec<(f32, f32, f32, f32)>,
     n_colors: usize,
@@ -600,8 +616,9 @@ fn _get_color(
     let col_x = (pos.0 as f64 - (map.len() - 1) as f64 * 0.5).abs().ceil();
     let mut n1 = (noise1.get([col_x, pos.1 as f64])).abs().powf(1.5) * 3.0;
     let mut n2 = (noise2.get([col_x, pos.1 as f64])).abs().powf(1.5) * 3.0;
+
     // highlight colors based on amount of neighbours
-    if !down {
+    if down.is_none() || !down.unwrap() {
         if is_negative {
             n2 -= 0.1;
         } else {
@@ -611,11 +628,11 @@ fn _get_color(
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0, pos.1 + 1),
-                color: (0.0, 0.0, 0.0, 1.0),
+                color: (3.0, 3.0, 3.0, 1.0),
             });
         }
     }
-    if !right {
+    if right.is_none() || !right.unwrap() {
         if is_negative {
             n2 += 0.1;
         } else {
@@ -625,11 +642,11 @@ fn _get_color(
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0 + 1, pos.1),
-                color: (0.0, 0.0, 0.0, 1.0),
+                color: (3.0, 3.0, 3.0, 1.0),
             });
         }
     }
-    if !up {
+    if up.is_none() || !up.unwrap() {
         if is_negative {
             n2 += 0.15;
         } else {
@@ -639,11 +656,11 @@ fn _get_color(
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0, pos.1 - 1),
-                color: (0.0, 0.0, 0.0, 1.0),
+                color: (3.0, 3.0, 3.0, 1.0),
             });
         }
     }
-    if !left {
+    if left.is_none() || !left.unwrap() {
         if is_negative {
             n2 += 0.1;
         } else {
@@ -653,7 +670,7 @@ fn _get_color(
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0 - 1, pos.1),
-                color: (0.0, 0.0, 0.0, 1.0),
+                color: (3.0, 3.0, 3.0, 1.0),
             });
         }
     }
@@ -678,7 +695,8 @@ fn _get_color(
         n2 += 0.3;
         n2 *= 1.5;
     }
-    // actually choose a color
+
+    // choose a color
     n1 = clamp(n1, 0.0, 1.0);
     n1 = (n1 * (n_colors as f64 - 1.0)).floor();
     n2 = clamp(n2, 0.0, 1.0);
@@ -753,4 +771,70 @@ fn dist_between(t1: (i32, i32), t2: (i32, i32)) -> f64 {
     let dx = (t2.0 - t1.0) as f64;
     let dy = (t2.1 - t1.1) as f64;
     (dx.powi(2) + dy.powi(2)).sqrt()
+}
+
+fn rgba_to_hex(rgba: (f32, f32, f32, f32)) -> String {
+    let (r, g, b, a) = rgba;
+
+    // Convert to u8
+    let r = (r * 255.0).round() as u8;
+    let g = (g * 255.0).round() as u8;
+    let b = (b * 255.0).round() as u8;
+    let a = (a * 255.0).round() as u8;
+
+    // Create hex string
+    format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a)
+}
+
+fn darken_rgba((r, g, b, a): (f32, f32, f32, f32), perc: f32) -> (f32, f32, f32, f32) {
+    let perc = perc.clamp(0.0, 1.0);
+
+    let darkened_r = r * (1.0 - perc);
+    let darkened_g = g * (1.0 - perc);
+    let darkened_b = b * (1.0 - perc);
+
+    (darkened_r, darkened_g, darkened_b, a)
+}
+
+fn html_from_board(board: Vec<Vec<(f32, f32, f32, f32)>>) -> String {
+    let mut board_inner_html = vec![];
+
+    for row in board {
+        for (r, g, b, a) in row {
+            let background_color = if r != 0.0 || g != 0.0 || b != 0.0 {
+                rgba_to_hex((r, g, b, a))
+            } else {
+                "white".to_owned()
+            };
+
+            let div = format!(
+                r#"
+                    <div style="height:8px; width:8px; background-color:{}; border:solid black 1px;"></div>
+                "#,
+                background_color,
+            );
+
+            board_inner_html.push(div.trim().to_owned());
+        }
+    }
+
+    format!(
+        r#"
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Sprite</title>
+            </head>
+            <body>
+                <div style="display: inline-grid; grid-template-columns:repeat({}, 1fr)">
+                    {}
+                </div>
+            </body>
+            </html>
+        "#,
+        SIZE.x,
+        board_inner_html.join(""),
+    )
 }
