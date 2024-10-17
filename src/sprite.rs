@@ -12,6 +12,7 @@ const SIZE: Size = Size { x: 45, y: 45 };
 const DRAW_RECT: Size = Size { x: 400, y: 400 };
 const OUTLINE: bool = true;
 const SEED: u32 = 1234;
+const PERLIN_SCALE: f64 = 320.5;
 
 const MOVEMENT: bool = true;
 const DRAW_SIZE: usize = 10;
@@ -77,16 +78,12 @@ impl GroupDrawer {
         let group_len = self.groups.len();
 
         for i in (0..group_len as i32).rev() {
-            if i < 0 {
-                continue;
-            }
-
             if let Some(g) = self.groups.get_mut(i as usize) {
                 g.start_time = g.arr.len() + group_len;
                 if g.arr.len() as f32 >= largest as f32 * 0.25 {
                     let mut cell_drawer = CellDrawer::new();
                     cell_drawer.set_cells(g.arr.clone());
-                    cell_drawer.lifetime = g.start_time.clone();
+                    cell_drawer.lifetime = g.start_time;
                     cell_drawer.movement = MOVEMENT;
 
                     self.add_child(cell_drawer);
@@ -146,6 +143,7 @@ impl GroupDrawer {
         for c in self.children.iter() {
             c._draw(&mut board);
         }
+
         board
     }
 
@@ -615,8 +613,14 @@ fn _get_color(
     noise2: Perlin,
 ) -> (f32, f32, f32, f32) {
     let col_x = (pos.0 as f64 - (map.len() - 1) as f64 * 0.5).abs().ceil();
-    let mut n1 = (noise1.get([col_x, pos.1 as f64])).abs().powf(1.5) * 3.0;
-    let mut n2 = (noise2.get([col_x, pos.1 as f64])).abs().powf(1.5) * 3.0;
+    let mut n1 = (noise1.get([col_x / PERLIN_SCALE, pos.1 as f64 / PERLIN_SCALE]))
+        .abs()
+        .powf(1.5)
+        * 3.0;
+    let mut n2 = (noise2.get([col_x / PERLIN_SCALE, pos.1 as f64 / PERLIN_SCALE]))
+        .abs()
+        .powf(1.5)
+        * 3.0;
 
     // highlight colors based on amount of neighbours
     if down.is_none() || !down.unwrap() {
@@ -624,8 +628,8 @@ fn _get_color(
             n2 -= 0.1;
         } else {
             n1 -= 0.45;
-            n1 *= 0.8;
         }
+        n1 *= 0.8;
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0, pos.1 + 1),
@@ -638,8 +642,8 @@ fn _get_color(
             n2 += 0.1;
         } else {
             n1 += 0.2;
-            n1 *= 1.1;
         }
+        n1 *= 1.1;
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0 + 1, pos.1),
@@ -652,8 +656,8 @@ fn _get_color(
             n2 += 0.15;
         } else {
             n1 += 0.45;
-            n1 *= 1.2;
         }
+        n1 *= 1.2;
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0, pos.1 - 1),
@@ -666,8 +670,8 @@ fn _get_color(
             n2 += 0.1;
         } else {
             n1 += 0.2;
-            n1 *= 1.1;
         }
+        n1 *= 1.1;
         if outline {
             group.arr.push(GroupItem {
                 position: (pos.0 - 1, pos.1),
@@ -676,20 +680,25 @@ fn _get_color(
         }
     }
     // highlight colors if the difference in colors between neighbours is big
-    let c_0 =
-        colorscheme[(noise1.get([col_x, pos.1 as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
-    let c_1 = colorscheme
-        [(noise1.get([col_x, (pos.1 - 1) as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
-    let c_2 = colorscheme
-        [(noise1.get([col_x, (pos.1 + 1) as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
-    let c_3 = colorscheme
-        [(noise1.get([col_x - 1.0, pos.1 as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
-    let c_4 = colorscheme
-        [(noise1.get([col_x + 1.0, pos.1 as f64]) * (n_colors as f64 - 1.0)).floor() as usize];
+    let c_0 = colorscheme
+        [noise1.get([col_x / PERLIN_SCALE, pos.1 as f64 / PERLIN_SCALE]) as usize * (n_colors - 1)];
+    let c_1 = colorscheme[noise1.get([col_x / PERLIN_SCALE, (pos.1 - 1) as f64 / PERLIN_SCALE])
+        as usize
+        * (n_colors - 1)];
+    let c_2 = colorscheme[noise1.get([col_x / PERLIN_SCALE, (pos.1 + 1) as f64 / PERLIN_SCALE])
+        as usize
+        * (n_colors - 1)];
+    let c_3 = colorscheme[noise1.get([(col_x - 1.0) / PERLIN_SCALE, pos.1 as f64 / PERLIN_SCALE])
+        as usize
+        * (n_colors - 1)];
+    let c_4 = colorscheme[noise1.get([(col_x + 1.0) / PERLIN_SCALE, pos.1 as f64 / PERLIN_SCALE])
+        as usize
+        * (n_colors - 1)];
     let diff = ((c_0.0 - c_1.0).abs() + (c_0.1 - c_1.1).abs() + (c_0.2 - c_1.2).abs())
-        + ((c_0.0 - c_2.0).abs() + (c_0.1 - c_2.1.abs()) + (c_0.2 - c_2.2).abs())
+        + ((c_0.0 - c_2.0).abs() + (c_0.1 - c_2.1).abs() + (c_0.2 - c_2.2).abs())
         + ((c_0.0 - c_3.0).abs() + (c_0.1 - c_3.1).abs() + (c_0.2 - c_3.2).abs())
         + ((c_0.0 - c_4.0).abs() + (c_0.1 - c_4.1).abs() + (c_0.2 - c_4.2).abs());
+
     if diff > 2.0 {
         n1 += 0.3;
         n1 *= 1.5;
@@ -787,7 +796,8 @@ fn rgba_to_hex(rgba: (f32, f32, f32, f32)) -> String {
     format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a)
 }
 
-fn darken_rgba((r, g, b, a): (f32, f32, f32, f32), perc: f32) -> (f32, f32, f32, f32) {
+fn darken_rgba(rgba: (f32, f32, f32, f32), perc: f32) -> (f32, f32, f32, f32) {
+    let (r, g, b, a) = rgba;
     let perc = perc.clamp(0.0, 1.0);
 
     let darkened_r = r * (1.0 - perc);
@@ -804,7 +814,7 @@ fn html_from_board(board: Vec<Vec<(f32, f32, f32, f32)>>) -> String {
         for (r, g, b, a) in row {
             let div = format!(
                 r#"
-                    <div style="height:8px; width:8px; background-color:{}; border:solid black 1px;"></div>
+                    <div style="height:8px; width:8px; background-color:{};"></div>
                 "#,
                 rgba_to_hex((r, g, b, a)),
             );
