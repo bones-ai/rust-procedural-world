@@ -13,4 +13,8 @@ fn test_sprites() {
     let eye_scheme = colorscheme_generator_generate_new_colorscheme(n_colors);
 
     let all_groups = color_filler_fill_colors(&mut map, scheme, eye_scheme, n_colors, true);
+
+    let mut group_drawer = GroupDrawer::new();
+    group_drawer.groups = all_groups.groups;
+    group_drawer.negative_groups = all_groups.negative_groups;
 }

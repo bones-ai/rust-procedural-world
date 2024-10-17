@@ -1,9 +1,15 @@
+use bevy::prelude::default;
 use noise::{NoiseFn, Perlin};
 use rand::*;
 
 const BIRTH_LIMIT: u32 = 5;
 const DEATH_LIMIT: u32 = 4;
 const N_STEPS: u32 = 4;
+
+const SIZE: Size = Size { x: 45, y: 45 };
+const DRAW_RECT: Size = Size { x: 400, y: 400 };
+const OUTLINE: bool = true;
+const SEED: u32 = 1234;
 
 #[derive(Debug)]
 pub struct Size {
@@ -29,9 +35,64 @@ pub struct FillColors {
     pub negative_groups: Vec<Group>,
 }
 
+#[derive(Debug, Default)]
+pub struct GroupDrawer {
+    pub groups: Vec<Group>,
+    pub negative_groups: Vec<Group>,
+    pub draw_size: usize,
+    pub position: (f32, f32),
+}
+
+impl GroupDrawer {
+    pub fn new() -> Self {
+        GroupDrawer { ..default() }
+    }
+
+    pub fn _ready() {
+        // TODO: ...
+    }
+}
+
+pub fn _get_group_drawer(pixel_perfect: bool) -> GroupDrawer {
+    let sprite_groups = get_sprite(SEED, &SIZE, 12, OUTLINE);
+    let mut gd = GroupDrawer::new();
+    gd.groups = sprite_groups.groups;
+    gd.negative_groups = sprite_groups.negative_groups;
+
+    let draw_size = min(DRAW_RECT.x / SIZE.x, DRAW_RECT.y / SIZE.y);
+    if pixel_perfect {
+        gd.draw_size = 1;
+    } else {
+        gd.draw_size = draw_size;
+        gd.position = (
+            (draw_size * SIZE.x) as f32 * -0.5,
+            (draw_size * SIZE.y) as f32 * -0.5,
+        );
+    }
+
+    gd
+}
+
+pub fn get_sprite(seed: u32, size: &Size, n_colors: usize, outline: bool) -> GroupDrawer {
+    let mut map = _get_random_map(size);
+
+    map = cellular_automata_do_steps(&mut map);
+
+    let scheme = colorscheme_generator_generate_new_colorscheme(n_colors);
+    let eye_scheme = colorscheme_generator_generate_new_colorscheme(n_colors);
+
+    let all_groups = color_filler_fill_colors(&mut map, scheme, eye_scheme, n_colors, outline);
+
+    let mut group_drawer = GroupDrawer::new();
+    group_drawer.groups = all_groups.groups;
+    group_drawer.negative_groups = all_groups.negative_groups;
+
+    group_drawer
+}
+
 pub fn map_generator_generate_new(size: Size) -> Vec<Vec<bool>> {
     let mut map = _get_random_map(&size);
-    for i in 0..2 {
+    for _ in 0..2 {
         _random_walk(&size, &mut map);
     }
     return map;
@@ -39,7 +100,7 @@ pub fn map_generator_generate_new(size: Size) -> Vec<Vec<bool>> {
 
 pub fn _get_random_map(size: &Size) -> Vec<Vec<bool>> {
     let mut map = vec![];
-    for x in 0..size.x {
+    for _ in 0..size.x {
         map.push(vec![]);
     }
 
@@ -68,7 +129,7 @@ pub fn _get_random_map(size: &Size) -> Vec<Vec<bool>> {
 
 fn _random_walk(size: &Size, map: &mut Vec<Vec<bool>>) {
     let mut pos = (randi() % size.x as i32, randi() % size.y as i32);
-    for i in 0..100 {
+    for _ in 0..100 {
         _set_at_pos(map, &pos, true);
 
         _set_at_pos(map, &(size.x as i32 - pos.0 - 1, pos.1), true);
@@ -96,7 +157,7 @@ fn _set_at_pos(map: &mut Vec<Vec<bool>>, pos: &(i32, i32), val: bool) -> bool {
 
 pub fn cellular_automata_do_steps(map: &mut Vec<Vec<bool>>) -> Vec<Vec<bool>> {
     let mut clone = map.clone();
-    for i in 0..N_STEPS {
+    for _ in 0..N_STEPS {
         clone = _step(&mut clone.clone());
     }
     clone
@@ -143,7 +204,7 @@ fn _get_at_pos(map: &Vec<Vec<bool>>, pos: (i32, i32)) -> bool {
         return false;
     }
 
-    if (pos.0 < 0 || pos.1 < 0) {
+    if pos.0 < 0 || pos.1 < 0 {
         return false;
     }
 
@@ -511,4 +572,11 @@ fn clamp(n: f64, min: f64, max: f64) -> f64 {
         return min;
     }
     n
+}
+
+fn min(n1: usize, n2: usize) -> usize {
+    if n1 > n2 {
+        return n2;
+    }
+    n1
 }
