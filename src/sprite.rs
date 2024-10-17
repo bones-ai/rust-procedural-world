@@ -225,7 +225,7 @@ pub fn _get_group_drawer(pixel_perfect: bool) -> GroupDrawer {
 pub fn get_sprite(seed: u32, size: &Size, n_colors: usize, outline: bool) -> GroupDrawer {
     let mut map = _get_random_map(size);
 
-    map = cellular_automata_do_steps(&mut map);
+    map = cellular_automata_do_steps(&mut map, outline);
 
     let scheme = colorscheme_generator_generate_new_colorscheme(n_colors);
     let eye_scheme = colorscheme_generator_generate_new_colorscheme(n_colors);
@@ -304,18 +304,26 @@ fn _set_at_pos(map: &mut Vec<Vec<bool>>, pos: &(i32, i32), val: bool) -> bool {
     true
 }
 
-pub fn cellular_automata_do_steps(map: &mut Vec<Vec<bool>>) -> Vec<Vec<bool>> {
+pub fn cellular_automata_do_steps(map: &mut Vec<Vec<bool>>, outline: bool) -> Vec<Vec<bool>> {
     let mut clone = map.clone();
     for _ in 0..N_STEPS {
-        clone = _step(&mut clone.clone());
+        clone = _step(&mut clone.clone(), outline);
     }
     clone
 }
 
-fn _step(map: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
+fn _step(map: &Vec<Vec<bool>>, outline: bool) -> Vec<Vec<bool>> {
     let mut dup = map.clone();
     for x in 0..map.len() {
         for y in 0..map[x].len() {
+            if outline {
+                // Ensure padding of 1 to prevent overflow when border is added later
+                if x == 0 || x == map.len() - 1 || y == 0 || y == map[x].len() - 1 {
+                    dup[x][y] = false;
+                    continue;
+                }
+            }
+
             let cell = dup[x][y];
             let n = _get_neighbours(map, (x, y));
             if cell && n < DEATH_LIMIT {
