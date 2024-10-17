@@ -1,6 +1,6 @@
 use std::fs;
 
-use bevy::prelude::default;
+use bevy::prelude::{default, Color};
 use noise::{NoiseFn, Perlin};
 use rand::*;
 
@@ -67,6 +67,37 @@ impl GroupDrawer {
 
     pub fn add_child(&mut self, cell_drawer: CellDrawer) {
         self.children.push(cell_drawer);
+    }
+
+    pub fn get_primary_color(&self) -> Color {
+        let mut sum_r: f32 = 0.0;
+        let mut sum_g: f32 = 0.0;
+        let mut sum_b: f32 = 0.0;
+
+        for c in self.children.iter() {
+            if c.is_eye {
+                continue;
+            }
+
+            for cell in c.cells.iter() {
+                let (r, g, b, _) = cell.color;
+                sum_r += r;
+                sum_g += g;
+                sum_b += b;
+            }
+        }
+
+        if sum_r >= sum_b && sum_r >= sum_b {
+            return Color::RED;
+        }
+        if sum_g >= sum_r && sum_g >= sum_b {
+            return Color::GREEN;
+        }
+        if sum_b >= sum_r && sum_b >= sum_g {
+            return Color::BLUE;
+        }
+
+        Color::RED
     }
 
     pub fn _ready(&mut self) {
