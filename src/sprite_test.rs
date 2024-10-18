@@ -11,5 +11,8 @@ fn test_gen_sprite() {
     let color = gd.get_primary_color();
     println!("{:?}", color);
 
+    let faction = gd.get_faction();
+    println!("{:?}", faction);
+
     gd.write_html_file("./sprite.html");
 }

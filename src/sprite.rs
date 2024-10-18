@@ -18,6 +18,18 @@ const MOVEMENT: bool = true;
 const DRAW_SIZE: usize = 10;
 
 #[derive(Debug)]
+pub enum Faction {
+    ChaosWarriors,
+    WaterBoys,
+    ForestBoys,
+    TechBoys,
+    HellSpawn,
+    SpaceAliens,
+    GoldenBoys,
+    JusticeSoldiers,
+}
+
+#[derive(Debug)]
 pub struct Size {
     pub x: usize,
     pub y: usize,
@@ -98,6 +110,111 @@ impl GroupDrawer {
         }
 
         Color::RED
+    }
+
+    pub fn get_faction(&self) -> Faction {
+        let mut sum_r: f32 = 0.0;
+        let mut sum_g: f32 = 0.0;
+        let mut sum_b: f32 = 0.0;
+        let mut count: f32 = 0.0;
+
+        for c in self.children.iter() {
+            if c.is_eye {
+                continue;
+            }
+
+            for cell in c.cells.iter() {
+                let (r, g, b, _) = cell.color;
+
+                if (r == 0.0 && g == 0.0 && b == 0.0) || (r == 255.0 && g == 255.0 && b == 255.0) {
+                    continue;
+                }
+
+                sum_r += (r * 255.0).round();
+                sum_g += (g * 255.0).round();
+                sum_b += (b * 255.0).round();
+                count += 1.0;
+            }
+        }
+
+        let avg_r = sum_r / count;
+        let avg_g = sum_g / count;
+        let avg_b = sum_b / count;
+
+        if avg_r >= 0.0
+            && avg_r <= 127.0
+            && avg_g >= 0.0
+            && avg_g <= 127.0
+            && avg_b >= 0.0
+            && avg_b <= 127.0
+        {
+            return Faction::ChaosWarriors;
+        }
+        if avg_r >= 128.0
+            && avg_r <= 255.0
+            && avg_g >= 0.0
+            && avg_g <= 127.0
+            && avg_b >= 0.0
+            && avg_b <= 127.0
+        {
+            return Faction::WaterBoys;
+        }
+        if avg_r >= 0.0
+            && avg_r <= 127.0
+            && avg_g >= 128.0
+            && avg_g <= 255.0
+            && avg_b >= 0.0
+            && avg_b <= 127.0
+        {
+            return Faction::ForestBoys;
+        }
+        if avg_r >= 128.0
+            && avg_r <= 255.0
+            && avg_g >= 128.0
+            && avg_g <= 255.0
+            && avg_b >= 0.0
+            && avg_b <= 127.0
+        {
+            return Faction::TechBoys;
+        }
+        if avg_r >= 0.0
+            && avg_r <= 127.0
+            && avg_g >= 0.0
+            && avg_g <= 127.0
+            && avg_b >= 128.0
+            && avg_b <= 255.0
+        {
+            return Faction::HellSpawn;
+        }
+        if avg_r >= 128.0
+            && avg_r <= 255.0
+            && avg_g >= 0.0
+            && avg_g <= 127.0
+            && avg_b >= 128.0
+            && avg_b <= 255.0
+        {
+            return Faction::SpaceAliens;
+        }
+        if avg_r >= 0.0
+            && avg_r <= 127.0
+            && avg_g >= 128.0
+            && avg_g <= 255.0
+            && avg_b >= 128.0
+            && avg_b <= 255.0
+        {
+            return Faction::GoldenBoys;
+        }
+        if avg_r >= 128.0
+            && avg_r <= 255.0
+            && avg_g >= 128.0
+            && avg_g <= 255.0
+            && avg_b >= 128.0
+            && avg_b <= 255.0
+        {
+            return Faction::JusticeSoldiers;
+        }
+
+        Faction::ChaosWarriors
     }
 
     pub fn _ready(&mut self) {

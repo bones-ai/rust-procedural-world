@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="display:flex; width=device-width, initial-scale=1.0">
+    <title>Faction Colors</title>
+</head>
+
+<body>
+    <div id="target" style="display: flex;"></div>
+
+    <script>
+        const targetEle = document.getElementById("target");
+
+        const divs = [];
+
+        for (const rSide of [0, 1]) {
+            for (const gSide of [0, 1]) {
+                for (const bSide of [0, 1]) {
+                    const rMin = rSide === 0 ? 0 : 128;
+                    const gMin = gSide === 0 ? 0 : 128;
+                    const bMin = bSide === 0 ? 0 : 128;
+
+                    const rMax = rSide === 0 ? 127 : 255;
+                    const gMax = gSide === 0 ? 127 : 255;
+                    const bMax = bSide === 0 ? 127 : 255;
+
+                    const upperLeftA = [rMin, gMin, bMin];
+                    const upperRightA = [rMax, gMin, bMin];
+                    const lowerLeftA = [rMin, gMax, bMin];
+                    const lowerRightA = [rMax, gMax, bMin];
+
+                    const upperLeftB = [rMin, gMin, bMax];
+                    const upperRightB = [rMax, gMin, bMax];
+                    const lowerLeftB = [rMin, gMax, bMax];
+                    const lowerRightB = [rMax, gMax, bMax];
+
+                    const center = [(rMax + rMin) / 2, ((gMax + gMin) / 2), (bMax + bMin) / 2];
+
+                    const colors = [
+                        upperLeftA,
+                        upperRightA,
+                        lowerLeftA,
+                        lowerRightA,
+                        upperLeftB,
+                        upperRightB,
+                        lowerLeftB,
+                        lowerRightB,
+                        center,
+                    ];
+
+                    const divInnerHtml = colors.map(rgb => {
+                        return `<div style="height:50px; width:100px; background-color:${rgbToHex(rgb)}"></div>`;
+                    });
+
+                    const div = `
+                        <div style="display:flex; flex-direction:column; margin:5px; border:solid black 1px;">
+                            ${divInnerHtml.join("")}
+                        </div>
+                    `;
+
+                    divs.push(div);
+                }
+            }
+        }
+
+        for (const div of divs) {
+            targetEle.insertAdjacentHTML("beforeend", div);
+        }
+
+        function rgbToHex(rgb) {
+            if (rgb.length !== 3) {
+                throw new Error("Input must be an array of length 3");
+            }
+
+            // Convert each RGB component to a two-digit hex string
+            const hex = rgb.map((value) => {
+                // Clamp the value to be between 0 and 255
+                const clampedValue = Math.max(0, Math.min(255, value));
+                // Convert to hexadecimal and pad with zero if needed
+                return ("0" + clampedValue.toString(16)).slice(-2);
+            });
+
+            return "#" + hex.join("");
+        }
+    </script>
+</body>
+
+</html>
