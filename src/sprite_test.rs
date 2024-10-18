@@ -3,9 +3,9 @@ use crate::sprite::*;
 
 #[test]
 fn test_gen_sprite() {
-    let mut gd = get_sprite(1234, &Size { x: 45, y: 45 }, 12, true);
+    let mut gd = get_sprite(1234, 45, 45);
 
-    gd._ready();
+    gd.ready();
     gd.draw_all();
 
     let color = gd.get_primary_color();
