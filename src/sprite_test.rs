@@ -3,7 +3,7 @@ use crate::sprite::*;
 
 #[test]
 fn test_gen_sprite() {
-    let mut gd = _get_group_drawer(false);
+    let mut gd = get_sprite(1234, &Size { x: 45, y: 45 }, 12, true);
 
     gd._ready();
     gd.draw_all();

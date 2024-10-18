@@ -3,6 +3,7 @@ pub mod grid;
 pub mod minigame;
 pub mod player;
 pub mod sprite;
+pub mod sprite_new;
 pub mod sprite_test;
 pub mod terrain;
 pub mod tests;

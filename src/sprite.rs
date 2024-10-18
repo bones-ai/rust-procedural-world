@@ -296,8 +296,66 @@ impl GroupDrawer {
     }
 
     pub fn write_html_file(&self, html_file_path: &str) {
-        let board = self.draw_all();
-        let html = html_from_board(board);
+        let mut board_inner_html = vec![];
+
+        for i in 0..self.children.len() {
+            let c = &self.children[i];
+
+            let mut group = vec![];
+            for cell in c.cells.iter() {
+                let (r, g, b, a) = cell.color;
+                let top_px = cell.position.1 * 8;
+                let left_px = cell.position.0 * 8;
+
+                let div = format!(
+                    r#"
+                        <div style="position:absolute; top:{}px; left:{}px; height:8px; width:8px; background-color:{};"></div>
+                    "#,
+                    top_px,
+                    left_px,
+                    rgba_to_hex((r, g, b, a)),
+                );
+
+                group.push(div);
+            }
+
+            let group_div = format!(
+                r#"
+                    <div style="position:absolute" class="group" data-group="{}">
+                        <div style="position:relative;">
+                            {}
+                        </div>
+                    </div>
+                "#,
+                i,
+                group.join(""),
+            );
+
+            board_inner_html.push(group_div);
+        }
+
+        let html = format!(
+            r#"
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Sprite</title>
+                </head>
+                <body>
+                    <div id="board" style="position:relative; height:{}px; width:{}px">
+                        {}
+                    </div>
+                    <script src="/sprite_movement.js"></script>
+                </body>
+                </html>
+            "#,
+            SIZE.y * 8,
+            SIZE.x * 8,
+            board_inner_html.join(""),
+        );
+
         fs::write(html_file_path, html).unwrap();
     }
 }
@@ -348,26 +406,6 @@ impl CellDrawer {
             }
         }
     }
-}
-
-pub fn _get_group_drawer(pixel_perfect: bool) -> GroupDrawer {
-    let sprite_groups = get_sprite(SEED, &SIZE, 12, OUTLINE);
-    let mut gd = GroupDrawer::new();
-    gd.groups = sprite_groups.groups;
-    gd.negative_groups = sprite_groups.negative_groups;
-
-    let draw_size = min(DRAW_RECT.x / SIZE.x, DRAW_RECT.y / SIZE.y);
-    if pixel_perfect {
-        gd.draw_size = 1;
-    } else {
-        gd.draw_size = draw_size;
-        gd.position = (
-            (draw_size * SIZE.x) as f32 * -0.5,
-            (draw_size * SIZE.y) as f32 * -0.5,
-        );
-    }
-
-    gd
 }
 
 pub fn get_sprite(seed: u32, size: &Size, n_colors: usize, outline: bool) -> GroupDrawer {
