@@ -1,8 +1,14 @@
-use std::{collections::HashSet, fs};
+use std::{
+    collections::HashSet,
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use bevy::prelude::{default, Color};
 use noise::{NoiseFn, Perlin};
 use rand::*;
+
+use crate::utils::seed_from_seed_str;
 
 const BIRTH_LIMIT: u32 = 5;
 const DEATH_LIMIT: u32 = 4;
@@ -36,7 +42,6 @@ pub struct Cell {
 #[derive(Clone, Debug)]
 pub struct Component {
     pub cells: Vec<Cell>,
-    pub valid: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -44,16 +49,115 @@ pub struct ComponentGroup {
     components: Vec<Component>,
 }
 
+pub struct Sprite {
+    component_groups: Vec<ComponentGroup>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct ComponentDrawer {
     pub component_groups: Vec<ComponentGroup>,
     pub neg_components: Vec<Component>,
-    pub children: Vec<CellDrawer>,
+    pub components: Vec<Component>,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct CellDrawer {
-    pub cells: Vec<Cell>,
+impl Component {
+    pub fn _draw(&self, board: &mut Vec<Vec<(f32, f32, f32, f32)>>) {
+        for c in self.cells.iter() {
+            if c.position.0 < 0 && c.position.1 < 0 {
+                continue;
+            }
+            if let Some(row) = board.get(c.position.1 as usize) {
+                if let Some(_) = row.get(c.position.0 as usize) {
+                    board[c.position.1 as usize][c.position.0 as usize] = c.color;
+                }
+            }
+        }
+    }
+}
+
+impl Sprite {
+    pub fn new(seed: u32) -> Self {
+        let start = SystemTime::now();
+        let duration = start.duration_since(UNIX_EPOCH).unwrap();
+        let unix_timestamp = duration.as_secs();
+        let seed_str = format!("{}{}", seed, unix_timestamp);
+
+        let new_seed = seed_from_seed_str(seed_str);
+
+        let mut cd = get_sprite(new_seed, 45, 45);
+        cd.ready();
+        cd.draw_all();
+
+        Sprite {
+            component_groups: group_components(cd.components),
+        }
+    }
+
+    pub fn write_html_file(&self, html_file_path: &str) {
+        let mut board_inner_html = vec![];
+
+        for component_group in self.component_groups.iter() {
+            for i in 0..component_group.components.len() {
+                let c = component_group.components[i].clone();
+
+                let mut group = vec![];
+                for cell in c.cells.iter() {
+                    let (r, g, b, a) = cell.color;
+                    let top_px = cell.position.1 * CELL_HEIGHT_PX as i32;
+                    let left_px = cell.position.0 * CELL_WIDTH_PX as i32;
+
+                    let div = format!(
+                        r#"
+                        <div style="position:absolute; top:{}px; left:{}px; height:8px; width:8px; background-color:{};"></div>
+                    "#,
+                        top_px,
+                        left_px,
+                        rgba_to_hex((r, g, b, a)),
+                    );
+
+                    group.push(div);
+                }
+
+                let group_div = format!(
+                    r#"
+                    <div style="position:absolute" class="group" data-group="{}">
+                        <div style="position:relative;">
+                            {}
+                        </div>
+                    </div>
+                "#,
+                    i,
+                    group.join(""),
+                );
+
+                board_inner_html.push(group_div);
+            }
+        }
+
+        let html = format!(
+            r#"
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Sprite</title>
+                </head>
+                <body>
+                    <div id="board" style="position:relative; height:{}px; width:{}px">
+                        {}
+                    </div>
+                    <script src="/sprite_movement.js"></script>
+                </body>
+                </html>
+            "#,
+            SPRITE_HEIGHT * CELL_HEIGHT_PX,
+            SPRITE_WIDTH * CELL_WIDTH_PX,
+            board_inner_html.join(""),
+        );
+
+        fs::write(html_file_path, html).unwrap();
+    }
 }
 
 impl ComponentDrawer {
@@ -65,8 +169,8 @@ impl ComponentDrawer {
         }
     }
 
-    pub fn add_child(&mut self, cell_drawer: CellDrawer) {
-        self.children.push(cell_drawer);
+    pub fn add_child(&mut self, component: Component) {
+        self.components.push(component);
     }
 
     pub fn get_primary_color(&self) -> Color {
@@ -74,7 +178,7 @@ impl ComponentDrawer {
         let mut sum_g: f32 = 0.0;
         let mut sum_b: f32 = 0.0;
 
-        for c in self.children.iter() {
+        for c in self.components.iter() {
             for cell in c.cells.iter() {
                 let (r, g, b, _) = cell.color;
                 sum_r += r;
@@ -102,7 +206,7 @@ impl ComponentDrawer {
         let mut sum_b: f32 = 0.0;
         let mut count: f32 = 0.0;
 
-        for c in self.children.iter() {
+        for c in self.components.iter() {
             for cell in c.cells.iter() {
                 let (r, g, b, _) = cell.color;
 
@@ -199,7 +303,6 @@ impl ComponentDrawer {
 
     pub fn ready(&mut self) {
         let mut largest: usize = 0;
-
         for component_group in self.component_groups.iter() {
             for component in component_group.components.iter() {
                 largest = max(largest, component.cells.len());
@@ -217,26 +320,22 @@ impl ComponentDrawer {
                         break;
                     }
 
-                    let mut dupe_arr = component.cells.clone();
+                    let mut dupe_cells: Vec<Cell> = component.cells.clone();
 
                     for neg_component in self.neg_components.iter_mut() {
-                        if !neg_component.valid {
-                            continue;
-                        }
-
                         if components_are_touching(&neg_component, &component) {
                             // Overlay neg_component cells ontop of component cells
-                            dupe_arr.append(&mut neg_component.cells);
+                            dupe_cells.append(&mut neg_component.cells);
                         }
                     }
 
-                    children.push(CellDrawer::new(dupe_arr));
+                    children.push(Component { cells: dupe_cells });
                 }
             }
         }
 
-        for cell_drawer in children {
-            self.add_child(cell_drawer);
+        for component in children {
+            self.add_child(component);
         }
     }
 
@@ -251,106 +350,18 @@ impl ComponentDrawer {
             board.push(row);
         }
 
-        for c in self.children.iter() {
+        for c in self.components.iter() {
             c._draw(&mut board);
         }
 
         board
     }
-
-    pub fn write_html_file(&self, html_file_path: &str) {
-        let mut board_inner_html = vec![];
-
-        for i in 0..self.children.len() {
-            let c = &self.children[i];
-
-            let mut group = vec![];
-            for cell in c.cells.iter() {
-                let (r, g, b, a) = cell.color;
-                let top_px = cell.position.1 * CELL_HEIGHT_PX as i32;
-                let left_px = cell.position.0 * CELL_WIDTH_PX as i32;
-
-                let div = format!(
-                    r#"
-                        <div style="position:absolute; top:{}px; left:{}px; height:8px; width:8px; background-color:{};"></div>
-                    "#,
-                    top_px,
-                    left_px,
-                    rgba_to_hex((r, g, b, a)),
-                );
-
-                group.push(div);
-            }
-
-            let group_div = format!(
-                r#"
-                    <div style="position:absolute" class="group" data-group="{}">
-                        <div style="position:relative;">
-                            {}
-                        </div>
-                    </div>
-                "#,
-                i,
-                group.join(""),
-            );
-
-            board_inner_html.push(group_div);
-        }
-
-        let html = format!(
-            r#"
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Sprite</title>
-                </head>
-                <body>
-                    <div id="board" style="position:relative; height:{}px; width:{}px">
-                        {}
-                    </div>
-                    <script src="/sprite_movement.js"></script>
-                </body>
-                </html>
-            "#,
-            SPRITE_HEIGHT * CELL_HEIGHT_PX,
-            SPRITE_WIDTH * CELL_WIDTH_PX,
-            board_inner_html.join(""),
-        );
-
-        fs::write(html_file_path, html).unwrap();
-    }
 }
 
-impl CellDrawer {
-    pub fn new(cells: Vec<Cell>) -> Self {
-        CellDrawer { cells, ..default() }
-    }
-
-    pub fn _draw(&self, board: &mut Vec<Vec<(f32, f32, f32, f32)>>) {
-        for c in self.cells.iter() {
-            if c.position.0 < 0 && c.position.1 < 0 {
-                continue;
-            }
-            if let Some(row) = board.get(c.position.1 as usize) {
-                if let Some(_) = row.get(c.position.0 as usize) {
-                    board[c.position.1 as usize][c.position.0 as usize] = c.color;
-                }
-            }
-        }
-    }
-}
-
-pub fn get_sprite(seed: u32, height: usize, width: usize) -> ComponentDrawer {
-    let mut map = make_rand_map(height, width);
-
-    cellular_automata_do_steps(&mut map);
-
-    let (components, neg_components) = fill_colors(&mut map);
-
+fn group_components(components: Vec<Component>) -> Vec<ComponentGroup> {
     let mut component_groups = vec![];
     let mut used_indeces: HashSet<usize> = HashSet::new();
+
     for i in 0..components.len() {
         if used_indeces.contains(&i) {
             continue;
@@ -385,6 +396,18 @@ pub fn get_sprite(seed: u32, height: usize, width: usize) -> ComponentDrawer {
 
         component_groups.push(cp_group);
     }
+
+    component_groups
+}
+
+pub fn get_sprite(seed: u32, height: usize, width: usize) -> ComponentDrawer {
+    let mut map = make_rand_map(height, width);
+
+    cellular_automata_do_steps(&mut map);
+
+    let (components, neg_components) = fill_colors(&mut map);
+
+    let component_groups = group_components(components);
 
     ComponentDrawer::new(component_groups, neg_components)
 }
@@ -610,10 +633,8 @@ fn flood_fill(
                 // if this cell is actually filled in the map
                 if map[x][y] {
                     bucket.push((x as i32, y as i32));
-                    let mut component = Component {
-                        cells: vec![],
-                        valid: true,
-                    };
+                    let mut component = Component { cells: vec![] };
+                    let mut valid = true;
 
                     // go through remaining cells in bucket
                     while bucket.len() > 0 {
@@ -629,7 +650,7 @@ fn flood_fill(
                         // dont want negative groups that touch the edge of the sprite
                         if is_neg_component {
                             if left.is_none() || up.is_none() || down.is_none() || right.is_none() {
-                                component.valid = false;
+                                valid = false;
                             }
                         }
                         // also do a coloring step in this flood fill, speeds up processing a bit instead of doing it seperately
@@ -690,7 +711,10 @@ fn flood_fill(
                             checked_map[pos.0 as usize][(pos.1 - 1) as usize] = true;
                         }
                     }
-                    components.push(component)
+
+                    if valid {
+                        components.push(component)
+                    }
                 }
             }
         }
