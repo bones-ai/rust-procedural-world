@@ -201,31 +201,25 @@ impl GroupDrawer {
         let group_len = self.groups.len();
 
         for i in (0..group_len as i32).rev() {
-            if let Some(group) = self.groups.get_mut(i as usize) {
+            if let Some(group) = self.groups.get(i as usize) {
                 if group.arr.len() as f32 >= largest as f32 * 0.25 {
-                    let cell_drawer = CellDrawer::new(group.arr.clone());
-                    // TODO: overlay negative_group cells ontop of the group cells (from self.children)
+                    let mut dupe_arr = group.arr.clone();
+
+                    for negative_group in self.negative_groups.iter_mut() {
+                        if !negative_group.valid {
+                            continue;
+                        }
+
+                        if group_is_touching_group(&negative_group, group) {
+                            // Overlay negative_group cells ontop of group cells
+                            dupe_arr.append(&mut negative_group.arr);
+                        }
+                    }
+
+                    let cell_drawer = CellDrawer::new(dupe_arr);
                     self.add_child(cell_drawer);
                 } else {
                     self.groups.remove(i as usize);
-                }
-            }
-        }
-
-        for i in 0..self.negative_groups.len() {
-            let negative_group = &mut self.negative_groups[i];
-            if negative_group.valid {
-                // TODO: overlay negative_group cells ontop of the group cells (from self.children)
-                let mut touching = false;
-                for group in &mut self.groups {
-                    if group_is_touching_group(&negative_group, group) {
-                        touching = true;
-                    }
-                }
-
-                if touching {
-                    let cell_drawer = CellDrawer::new(negative_group.arr.clone());
-                    self.add_child(cell_drawer);
                 }
             }
         }
@@ -605,6 +599,7 @@ fn flood_fill(
                             position: pos,
                             color: col,
                         });
+
                         // add neighbours to bucket to check
                         if right.is_some()
                             && right.unwrap()
@@ -764,17 +759,18 @@ fn choose_color(
 }
 
 fn group_is_touching_group(g1: &Group, g2: &Group) -> bool {
-    for c in &g1.arr {
-        for c2 in &g2.arr {
-            if c.position.0 == c2.position.0 {
-                if c.position.1 == c2.position.1 + 1 || c.position.1 == c2.position.1 - 1 {
-                    return true;
-                }
-            } else if c.position.1 == c2.position.1 {
-                if c.position.0 == c2.position.0 + 1 || c.position.0 == c2.position.0 - 1 {
-                    return true;
-                }
-            }
+    let g1_positions: Vec<(i32, i32)> = g1.arr.iter().map(|c: &Cell| c.position).collect();
+    let g2_positions: Vec<(i32, i32)> = g2.arr.iter().map(|c: &Cell| c.position).collect();
+
+    for &(x, y) in &g1_positions {
+        if g2_positions.contains(&(x, y)) {
+            return true;
+        }
+    }
+
+    for &(x, y) in &g2_positions {
+        if g1_positions.contains(&(x, y)) {
+            return true;
         }
     }
 

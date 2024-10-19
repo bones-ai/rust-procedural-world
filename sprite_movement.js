@@ -14,10 +14,27 @@
     ];
 
     for (let i = 0; i < groupEles.length; i++) {
-        const ele = groupEles[i];
+        (async function () {
+            const ele = groupEles[i];
 
-        const j = randIntBetween(0, movementFuncs.length - 1);
-        // movementFuncs[j](ele);
+            const j = randIntBetween(0, movementFuncs.length - 1);
+
+            let frame = 0;
+            let incr = true;
+
+            while (true) {
+                ele.style.top = `${frame * 4 * (i + 1)}px`;
+
+                incr ? frame++ : frame--;
+                if (frame === MAX_FRAME) {
+                    incr = false;
+                } else if (frame === 0) {
+                    incr = true;
+                }
+
+                await wait(30);
+            }
+        })();
 
         // if (i < 2) {
         //     clockwiseToRightLoop(ele);
