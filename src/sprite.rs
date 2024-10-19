@@ -1,4 +1,4 @@
-use std::fs;
+use std::{collections::HashSet, fs};
 
 use bevy::prelude::{default, Color};
 use noise::{NoiseFn, Perlin};
@@ -34,15 +34,20 @@ pub struct Cell {
 }
 
 #[derive(Clone, Debug)]
-pub struct Group {
-    pub arr: Vec<Cell>,
+pub struct Component {
+    pub cells: Vec<Cell>,
     pub valid: bool,
 }
 
+#[derive(Clone, Debug)]
+pub struct ComponentGroup {
+    components: Vec<Component>,
+}
+
 #[derive(Clone, Debug, Default)]
-pub struct GroupDrawer {
-    pub groups: Vec<Group>,
-    pub negative_groups: Vec<Group>,
+pub struct ComponentDrawer {
+    pub component_groups: Vec<ComponentGroup>,
+    pub neg_components: Vec<Component>,
     pub children: Vec<CellDrawer>,
 }
 
@@ -51,11 +56,11 @@ pub struct CellDrawer {
     pub cells: Vec<Cell>,
 }
 
-impl GroupDrawer {
-    pub fn new(groups: Vec<Group>, negative_groups: Vec<Group>) -> Self {
-        GroupDrawer {
-            groups,
-            negative_groups,
+impl ComponentDrawer {
+    pub fn new(component_groups: Vec<ComponentGroup>, neg_components: Vec<Component>) -> Self {
+        ComponentDrawer {
+            component_groups,
+            neg_components,
             ..default()
         }
     }
@@ -194,34 +199,44 @@ impl GroupDrawer {
 
     pub fn ready(&mut self) {
         let mut largest: usize = 0;
-        for group in &self.groups {
-            largest = max(largest, group.arr.len());
+
+        for component_group in self.component_groups.iter() {
+            for component in component_group.components.iter() {
+                largest = max(largest, component.cells.len());
+            }
         }
 
-        let group_len = self.groups.len();
+        let component_groups_len = self.component_groups.len();
+        let mut children = vec![];
 
-        for i in (0..group_len as i32).rev() {
-            if let Some(group) = self.groups.get(i as usize) {
-                if group.arr.len() as f32 >= largest as f32 * 0.25 {
-                    let mut dupe_arr = group.arr.clone();
+        for i in (0..component_groups_len as i32).rev() {
+            if let Some(component_group) = self.component_groups.get(i as usize) {
+                for component in component_group.components.iter() {
+                    if !(component.cells.len() as f32 >= largest as f32 * 0.25) {
+                        self.component_groups.remove(i as usize);
+                        break;
+                    }
 
-                    for negative_group in self.negative_groups.iter_mut() {
-                        if !negative_group.valid {
+                    let mut dupe_arr = component.cells.clone();
+
+                    for neg_component in self.neg_components.iter_mut() {
+                        if !neg_component.valid {
                             continue;
                         }
 
-                        if group_is_touching_group(&negative_group, group) {
-                            // Overlay negative_group cells ontop of group cells
-                            dupe_arr.append(&mut negative_group.arr);
+                        if components_are_touching(&neg_component, &component) {
+                            // Overlay neg_component cells ontop of component cells
+                            dupe_arr.append(&mut neg_component.cells);
                         }
                     }
 
-                    let cell_drawer = CellDrawer::new(dupe_arr);
-                    self.add_child(cell_drawer);
-                } else {
-                    self.groups.remove(i as usize);
+                    children.push(CellDrawer::new(dupe_arr));
                 }
             }
+        }
+
+        for cell_drawer in children {
+            self.add_child(cell_drawer);
         }
     }
 
@@ -327,14 +342,51 @@ impl CellDrawer {
     }
 }
 
-pub fn get_sprite(seed: u32, height: usize, width: usize) -> GroupDrawer {
+pub fn get_sprite(seed: u32, height: usize, width: usize) -> ComponentDrawer {
     let mut map = make_rand_map(height, width);
 
     cellular_automata_do_steps(&mut map);
 
-    let (groups, negative_groups) = fill_colors(&mut map);
+    let (components, neg_components) = fill_colors(&mut map);
 
-    GroupDrawer::new(groups, negative_groups)
+    let mut component_groups = vec![];
+    let mut used_indeces: HashSet<usize> = HashSet::new();
+    for i in 0..components.len() {
+        if used_indeces.contains(&i) {
+            continue;
+        }
+        used_indeces.insert(i);
+
+        let cp = components[i].clone();
+        let mut cp_group = ComponentGroup {
+            components: vec![cp.clone()],
+        };
+
+        'f: for j in 0..components.len() {
+            if j == i || used_indeces.contains(&j) {
+                continue 'f;
+            }
+
+            let cp2 = &components[j];
+
+            // match mirrored components into component groups of 2
+            for cell in cp.cells.iter() {
+                let (x, y) = cell.position;
+                let pos_reflected = (SPRITE_WIDTH as i32 - 1 - x, y);
+                if !cp2.cells.iter().any(|c| c.position == pos_reflected) {
+                    continue 'f;
+                }
+            }
+
+            cp_group.components.push(cp2.clone());
+            used_indeces.insert(j);
+            break 'f;
+        }
+
+        component_groups.push(cp_group);
+    }
+
+    ComponentDrawer::new(component_groups, neg_components)
 }
 
 pub fn make_rand_map(height: usize, width: usize) -> Vec<Vec<bool>> {
@@ -481,14 +533,14 @@ pub fn gen_colorscheme() -> Vec<(f32, f32, f32, f32)> {
     cols
 }
 
-pub fn fill_colors(map: &mut Vec<Vec<bool>>) -> (Vec<Group>, Vec<Group>) {
+pub fn fill_colors(map: &mut Vec<Vec<bool>>) -> (Vec<Component>, Vec<Component>) {
     let colorscheme = gen_colorscheme();
     let eye_colorscheme = gen_colorscheme();
 
     let noise1 = Perlin::new(randu());
     let noise2 = Perlin::new(randu());
 
-    let groups = flood_fill(
+    let components = flood_fill(
         map,
         colorscheme.clone(),
         eye_colorscheme.clone(),
@@ -497,9 +549,9 @@ pub fn fill_colors(map: &mut Vec<Vec<bool>>) -> (Vec<Group>, Vec<Group>) {
         noise2,
     );
 
-    let negative_groups = flood_fill_negative(map, colorscheme, eye_colorscheme, noise1, noise2);
+    let neg_components = flood_fill_negative(map, colorscheme, eye_colorscheme, noise1, noise2);
 
-    (groups, negative_groups)
+    (components, neg_components)
 }
 
 fn flood_fill_negative(
@@ -508,7 +560,7 @@ fn flood_fill_negative(
     eye_colorscheme: Vec<(f32, f32, f32, f32)>,
     noise1: Perlin,
     noise2: Perlin,
-) -> Vec<Group> {
+) -> Vec<Component> {
     let mut negative_map = vec![];
     for x in 0..map.len() {
         let mut arr = vec![];
@@ -534,11 +586,11 @@ fn flood_fill(
     map: &mut Vec<Vec<bool>>,
     colorscheme: Vec<(f32, f32, f32, f32)>,
     eye_colorscheme: Vec<(f32, f32, f32, f32)>,
-    is_negative_group: bool,
+    is_neg_component: bool,
     noise1: Perlin,
     noise2: Perlin,
-) -> Vec<Group> {
-    let mut groups: Vec<Group> = vec![];
+) -> Vec<Component> {
+    let mut components: Vec<Component> = vec![];
     let mut checked_map = vec![];
     for x in 0..map.len() {
         let mut arr = vec![];
@@ -558,8 +610,8 @@ fn flood_fill(
                 // if this cell is actually filled in the map
                 if map[x][y] {
                     bucket.push((x as i32, y as i32));
-                    let mut group = Group {
-                        arr: vec![],
+                    let mut component = Component {
+                        cells: vec![],
                         valid: true,
                     };
 
@@ -575,27 +627,27 @@ fn flood_fill(
                         let down = get_at_pos(map, (pos.0, pos.1 + 1));
                         let up = get_at_pos(map, (pos.0, pos.1 - 1));
                         // dont want negative groups that touch the edge of the sprite
-                        if is_negative_group {
+                        if is_neg_component {
                             if left.is_none() || up.is_none() || down.is_none() || right.is_none() {
-                                group.valid = false;
+                                component.valid = false;
                             }
                         }
                         // also do a coloring step in this flood fill, speeds up processing a bit instead of doing it seperately
                         let col = choose_color(
                             map,
                             pos,
-                            is_negative_group,
+                            is_neg_component,
                             right,
                             left,
                             down,
                             up,
                             colorscheme.clone(),
                             eye_colorscheme.clone(),
-                            &mut group,
+                            &mut component,
                             noise1,
                             noise2,
                         );
-                        group.arr.push(Cell {
+                        component.cells.push(Cell {
                             position: pos,
                             color: col,
                         });
@@ -638,25 +690,26 @@ fn flood_fill(
                             checked_map[pos.0 as usize][(pos.1 - 1) as usize] = true;
                         }
                     }
-                    groups.push(group)
+                    components.push(component)
                 }
             }
         }
     }
-    groups
+
+    components
 }
 
 fn choose_color(
     map: &mut Vec<Vec<bool>>,
     pos: (i32, i32),
-    is_negative_group: bool,
+    is_neg_component: bool,
     right: Option<bool>,
     left: Option<bool>,
     down: Option<bool>,
     up: Option<bool>,
     colorscheme: Vec<(f32, f32, f32, f32)>,
     eye_colorscheme: Vec<(f32, f32, f32, f32)>,
-    group: &mut Group,
+    component: &mut Component,
     noise1: Perlin,
     noise2: Perlin,
 ) -> (f32, f32, f32, f32) {
@@ -672,49 +725,49 @@ fn choose_color(
 
     // highlight colors based on amount of neighbours
     if down.is_none() || !down.unwrap() {
-        if is_negative_group {
+        if is_neg_component {
             n2 -= 0.1;
         } else {
             n1 -= 0.45;
         }
         n1 *= 0.8;
-        group.arr.push(Cell {
+        component.cells.push(Cell {
             position: (pos.0, pos.1 + 1),
             color: (0.0, 0.0, 0.0, 1.0),
         });
     }
     if right.is_none() || !right.unwrap() {
-        if is_negative_group {
+        if is_neg_component {
             n2 += 0.1;
         } else {
             n1 += 0.2;
         }
         n1 *= 1.1;
-        group.arr.push(Cell {
+        component.cells.push(Cell {
             position: (pos.0 + 1, pos.1),
             color: (0.0, 0.0, 0.0, 1.0),
         });
     }
     if up.is_none() || !up.unwrap() {
-        if is_negative_group {
+        if is_neg_component {
             n2 += 0.15;
         } else {
             n1 += 0.45;
         }
         n1 *= 1.2;
-        group.arr.push(Cell {
+        component.cells.push(Cell {
             position: (pos.0, pos.1 - 1),
             color: (0.0, 0.0, 0.0, 1.0),
         });
     }
     if left.is_none() || !left.unwrap() {
-        if is_negative_group {
+        if is_neg_component {
             n2 += 0.1;
         } else {
             n1 += 0.2;
         }
         n1 *= 1.1;
-        group.arr.push(Cell {
+        component.cells.push(Cell {
             position: (pos.0 - 1, pos.1),
             color: (0.0, 0.0, 0.0, 1.0),
         });
@@ -752,24 +805,24 @@ fn choose_color(
     n2 = clamp(n2, 0.0, 1.0);
     n2 = (n2 * (N_COLORS as f64 - 1.0)).floor();
     let mut col = colorscheme[n1 as usize];
-    if is_negative_group {
+    if is_neg_component {
         col = eye_colorscheme[n2 as usize];
     }
     col
 }
 
-fn group_is_touching_group(g1: &Group, g2: &Group) -> bool {
-    let g1_positions: Vec<(i32, i32)> = g1.arr.iter().map(|c: &Cell| c.position).collect();
-    let g2_positions: Vec<(i32, i32)> = g2.arr.iter().map(|c: &Cell| c.position).collect();
+fn components_are_touching(cp1: &Component, cp2: &Component) -> bool {
+    let cp1_positions: Vec<(i32, i32)> = cp1.cells.iter().map(|c: &Cell| c.position).collect();
+    let cp2_positions: Vec<(i32, i32)> = cp2.cells.iter().map(|c: &Cell| c.position).collect();
 
-    for &(x, y) in &g1_positions {
-        if g2_positions.contains(&(x, y)) {
+    for &(x, y) in &cp1_positions {
+        if cp2_positions.contains(&(x, y)) {
             return true;
         }
     }
 
-    for &(x, y) in &g2_positions {
-        if g1_positions.contains(&(x, y)) {
+    for &(x, y) in &cp2_positions {
+        if cp1_positions.contains(&(x, y)) {
             return true;
         }
     }
