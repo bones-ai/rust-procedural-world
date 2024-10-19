@@ -1,23 +1,16 @@
+
+
 (async function () {
     const MAX_FRAME = 30;
     DEFAULT_TIMEOUT = 32;
 
-    const boardEle = document.querySelector("#board");
     const groupEles = Array.from(document.querySelectorAll(".group"));
 
-    console.log("Starting loops");
-
-    const movementFuncs = [
-        clockwiseToRightLoop,
-        moveUpAndDownLoop,
-        counterClockwiseToRightLoop,
-    ];
+    console.log("Starting sprite movement");
 
     for (let i = 0; i < groupEles.length; i++) {
         (async function () {
             const ele = groupEles[i];
-
-            const j = randIntBetween(0, movementFuncs.length - 1);
 
             let frame = 0;
             let incr = true;
@@ -35,14 +28,6 @@
                 await wait(30);
             }
         })();
-
-        // if (i < 2) {
-        //     clockwiseToRightLoop(ele);
-        // } else if (i < 5) {
-        //     moveUpAndDownLoop(ele);
-        // } else {
-        //     counterClockwiseToRightLoop(ele);
-        // }
     }
 
     async function counterClockwiseToRightLoop(element, timeout = DEFAULT_TIMEOUT, radius = 30) {

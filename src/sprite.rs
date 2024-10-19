@@ -6,9 +6,9 @@ use std::{
 
 use bevy::prelude::{default, Color};
 use noise::{NoiseFn, Perlin};
-use rand::*;
+use rand::{rngs::StdRng, Rng};
 
-use crate::utils::seed_from_seed_str;
+use crate::utils::seed_to_rng;
 
 const BIRTH_LIMIT: u32 = 5;
 const DEATH_LIMIT: u32 = 4;
@@ -77,20 +77,20 @@ impl Component {
 
 impl Sprite {
     pub fn new(seed: u32) -> Self {
-        let start = SystemTime::now();
-        let duration = start.duration_since(UNIX_EPOCH).unwrap();
-        let unix_timestamp = duration.as_secs();
-        let seed_str = format!("{}{}", seed, unix_timestamp);
-
-        let new_seed = seed_from_seed_str(seed_str);
-
-        let mut cd = get_sprite(new_seed, 45, 45);
+        let mut cd = get_sprite(seed, 45, 45);
         cd.ready();
         cd.draw_all();
 
         Sprite {
             component_groups: group_components(cd.components),
         }
+    }
+
+    pub fn new_from_unix_seed() -> Self {
+        let start = SystemTime::now();
+        let duration = start.duration_since(UNIX_EPOCH).unwrap();
+        let unix_timestamp = duration.as_micros();
+        Self::new(unix_timestamp as u32)
     }
 
     pub fn write_html_file(&self, html_file_path: &str) {
@@ -108,8 +108,8 @@ impl Sprite {
 
                     let div = format!(
                         r#"
-                        <div style="position:absolute; top:{}px; left:{}px; height:8px; width:8px; background-color:{};"></div>
-                    "#,
+                            <div style="position:absolute; top:{}px; left:{}px; height:8px; width:8px; background-color:{};"></div>
+                        "#,
                         top_px,
                         left_px,
                         rgba_to_hex((r, g, b, a)),
@@ -120,12 +120,12 @@ impl Sprite {
 
                 let group_div = format!(
                     r#"
-                    <div style="position:absolute" class="group" data-group="{}">
-                        <div style="position:relative;">
-                            {}
+                        <div style="position:absolute" class="group" data-group="{}">
+                            <div style="position:relative;">
+                                {}
+                            </div>
                         </div>
-                    </div>
-                "#,
+                    "#,
                     i,
                     group.join(""),
                 );
@@ -144,10 +144,10 @@ impl Sprite {
                     <title>Sprite</title>
                 </head>
                 <body>
+                    <script defer src="/sprite_movement.js"></script>
                     <div id="board" style="position:relative; height:{}px; width:{}px">
                         {}
                     </div>
-                    <script src="/sprite_movement.js"></script>
                 </body>
                 </html>
             "#,
@@ -156,7 +156,7 @@ impl Sprite {
             board_inner_html.join(""),
         );
 
-        fs::write(html_file_path, html).unwrap();
+        fs::write(html_file_path, html.trim()).unwrap();
     }
 }
 
@@ -401,34 +401,36 @@ fn group_components(components: Vec<Component>) -> Vec<ComponentGroup> {
 }
 
 pub fn get_sprite(seed: u32, height: usize, width: usize) -> ComponentDrawer {
-    let mut map = make_rand_map(height, width);
+    let mut map = make_rand_map(seed, height, width);
 
     cellular_automata_do_steps(&mut map);
 
-    let (components, neg_components) = fill_colors(&mut map);
+    let (components, neg_components) = fill_colors(seed, &mut map);
 
     let component_groups = group_components(components);
 
     ComponentDrawer::new(component_groups, neg_components)
 }
 
-pub fn make_rand_map(height: usize, width: usize) -> Vec<Vec<bool>> {
+pub fn make_rand_map(seed: u32, height: usize, width: usize) -> Vec<Vec<bool>> {
     let mut map = vec![];
     for _ in 0..width {
         map.push(vec![]);
     }
 
+    let mut rng = seed_to_rng(seed);
+
     for x in 0..(width as f32 * 0.5).ceil() as usize {
         let mut arr = vec![];
         for y in 0..height {
-            arr.push(rand_bool(0.48));
+            arr.push(rand_bool(&mut rng, 0.48));
 
             // When close to center increase the cances to fill the map, so it's more likely to end up with a sprite that's connected in the middle
             let to_center = ((y as f32 - height as f32 * 0.5).abs() * 2.0) / height as f32;
             if x as f32 == (width as f32 * 0.5).floor() - 1.0
                 || x as f32 == (width as f32 * 0.5) - 2.0
             {
-                if rand_range(0.0, 0.4) > to_center {
+                if rand_range(&mut rng, 0.0, 0.4) > to_center {
                     arr[y] = true;
                 }
             }
@@ -510,29 +512,31 @@ fn get_at_pos(map: &Vec<Vec<bool>>, pos: (i32, i32)) -> Option<bool> {
     Some(map[pos.0 as usize][pos.1 as usize])
 }
 
-pub fn gen_colorscheme() -> Vec<(f32, f32, f32, f32)> {
+pub fn gen_colorscheme(seed: u32) -> Vec<(f32, f32, f32, f32)> {
+    let mut rng = seed_to_rng(seed);
+
     let a = (
-        rand_range(0.0, 0.5),
-        rand_range(0.0, 0.5),
-        rand_range(0.0, 0.5),
+        rand_range(&mut rng, 0.0, 0.5),
+        rand_range(&mut rng, 0.0, 0.5),
+        rand_range(&mut rng, 0.0, 0.5),
     );
 
     let b = (
-        rand_range(0.1, 0.6),
-        rand_range(0.1, 0.6),
-        rand_range(0.1, 0.6),
+        rand_range(&mut rng, 0.1, 0.6),
+        rand_range(&mut rng, 0.1, 0.6),
+        rand_range(&mut rng, 0.1, 0.6),
     );
 
     let c = (
-        rand_range(0.15, 0.8),
-        rand_range(0.15, 0.8),
-        rand_range(0.15, 0.8),
+        rand_range(&mut rng, 0.15, 0.8),
+        rand_range(&mut rng, 0.15, 0.8),
+        rand_range(&mut rng, 0.15, 0.8),
     );
 
     let d = (
-        rand_range(0.0, 1.0),
-        rand_range(0.0, 1.0),
-        rand_range(0.0, 1.0),
+        rand_range(&mut rng, 0.0, 1.0),
+        rand_range(&mut rng, 0.0, 1.0),
+        rand_range(&mut rng, 0.0, 1.0),
     );
 
     let mut cols = vec![];
@@ -556,12 +560,12 @@ pub fn gen_colorscheme() -> Vec<(f32, f32, f32, f32)> {
     cols
 }
 
-pub fn fill_colors(map: &mut Vec<Vec<bool>>) -> (Vec<Component>, Vec<Component>) {
-    let colorscheme = gen_colorscheme();
-    let eye_colorscheme = gen_colorscheme();
+pub fn fill_colors(seed: u32, map: &mut Vec<Vec<bool>>) -> (Vec<Component>, Vec<Component>) {
+    let colorscheme = gen_colorscheme(seed);
+    let eye_colorscheme = gen_colorscheme(seed + 1);
 
-    let noise1 = Perlin::new(randu());
-    let noise2 = Perlin::new(randu());
+    let noise1 = Perlin::new(seed);
+    let noise2 = Perlin::new(seed + 1);
 
     let components = flood_fill(
         map,
@@ -824,9 +828,9 @@ fn choose_color(
     }
 
     // choose a color
-    n1 = clamp(n1, 0.0, 1.0);
+    n1 = n1.clamp(0.0, 1.0);
     n1 = (n1 * (N_COLORS as f64 - 1.0)).floor();
-    n2 = clamp(n2, 0.0, 1.0);
+    n2 = n2.clamp(0.0, 1.0);
     n2 = (n2 * (N_COLORS as f64 - 1.0)).floor();
     let mut col = colorscheme[n1 as usize];
     if is_neg_component {
@@ -854,27 +858,12 @@ fn components_are_touching(cp1: &Component, cp2: &Component) -> bool {
     false
 }
 
-fn rand_bool(chance: f32) -> bool {
-    rand_range(0.0, 1.0) > chance
+fn rand_bool(rng: &mut StdRng, chance: f32) -> bool {
+    rand_range(rng, 0.0, 1.0) > chance
 }
 
-fn rand_range(n1: f32, n2: f32) -> f32 {
-    let mut rng = rand::thread_rng();
+fn rand_range(rng: &mut StdRng, n1: f32, n2: f32) -> f32 {
     rng.gen_range(n1..n2)
-}
-
-fn randu() -> u32 {
-    rand::thread_rng().gen_range(0..u32::MAX)
-}
-
-fn clamp(n: f64, min: f64, max: f64) -> f64 {
-    if n > max {
-        return max;
-    }
-    if n < min {
-        return min;
-    }
-    n
 }
 
 fn max(n1: usize, n2: usize) -> usize {
