@@ -4,7 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use bevy::prelude::{default, Color};
+use bevy::prelude::Color;
 use noise::{NoiseFn, Perlin};
 use rand::{rngs::StdRng, Rng};
 
@@ -61,7 +61,7 @@ pub struct ComponentDrawer {
 }
 
 impl Component {
-    pub fn _draw(&self, board: &mut Vec<Vec<(f32, f32, f32, f32)>>) {
+    fn _draw(&self, board: &mut Vec<Vec<(f32, f32, f32, f32)>>) {
         for c in self.cells.iter() {
             if c.position.0 < 0 && c.position.1 < 0 {
                 continue;
@@ -77,9 +77,7 @@ impl Component {
 
 impl Sprite {
     pub fn new(seed: u32) -> Self {
-        let mut cd = get_sprite(seed, 45, 45);
-        cd.ready();
-        cd.draw_all();
+        let cd = ComponentDrawer::new(seed, 45, 45);
 
         Sprite {
             component_groups: group_components(cd.components),
@@ -161,12 +159,25 @@ impl Sprite {
 }
 
 impl ComponentDrawer {
-    pub fn new(component_groups: Vec<ComponentGroup>, neg_components: Vec<Component>) -> Self {
-        ComponentDrawer {
+    pub fn new(seed: u32, height: usize, width: usize) -> Self {
+        let mut map = make_rand_map(seed, height, width);
+
+        cellular_automata_do_steps(&mut map);
+
+        let (components, neg_components) = fill_colors(seed, &mut map);
+
+        let component_groups = group_components(components);
+
+        let mut cd = ComponentDrawer {
             component_groups,
             neg_components,
-            ..default()
-        }
+            components: vec![],
+        };
+
+        cd.ready();
+        cd.draw_all();
+
+        cd
     }
 
     pub fn add_child(&mut self, component: Component) {
@@ -301,7 +312,7 @@ impl ComponentDrawer {
         Faction::ChaosWarriors
     }
 
-    pub fn ready(&mut self) {
+    fn ready(&mut self) {
         let mut largest: usize = 0;
         for component_group in self.component_groups.iter() {
             for component in component_group.components.iter() {
@@ -339,7 +350,7 @@ impl ComponentDrawer {
         }
     }
 
-    pub fn draw_all(&self) -> Vec<Vec<(f32, f32, f32, f32)>> {
+    fn draw_all(&self) -> Vec<Vec<(f32, f32, f32, f32)>> {
         let mut board: Vec<Vec<(f32, f32, f32, f32)>> = vec![];
         for _ in 0..SPRITE_HEIGHT {
             let mut row = vec![];
@@ -398,18 +409,6 @@ fn group_components(components: Vec<Component>) -> Vec<ComponentGroup> {
     }
 
     component_groups
-}
-
-pub fn get_sprite(seed: u32, height: usize, width: usize) -> ComponentDrawer {
-    let mut map = make_rand_map(seed, height, width);
-
-    cellular_automata_do_steps(&mut map);
-
-    let (components, neg_components) = fill_colors(seed, &mut map);
-
-    let component_groups = group_components(components);
-
-    ComponentDrawer::new(component_groups, neg_components)
 }
 
 pub fn make_rand_map(seed: u32, height: usize, width: usize) -> Vec<Vec<bool>> {
